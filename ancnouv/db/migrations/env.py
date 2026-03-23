@@ -41,26 +41,30 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def _do_run_migrations(connection) -> None:
+    """Exécute configure + run_migrations dans le contexte greenlet de run_sync."""
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        render_as_batch=True,
+    )
+    with context.begin_transaction():
+        context.run_migrations()
+
+
 async def run_migrations_online() -> None:
     """Migrations avec connexion async aiosqlite.
 
     [DB-10] PRAGMA foreign_keys=ON activé AVANT context.begin_transaction().
+    configure() et run_migrations() doivent tous deux être dans run_sync
+    pour rester dans le contexte greenlet — sinon MissingGreenlet.
     """
     engine = create_async_engine(_get_db_url())
 
     async with engine.connect() as connection:
         # [DB-10] PRAGMA avant begin_transaction — ordre obligatoire
         await connection.execute(text("PRAGMA foreign_keys=ON"))
-
-        await connection.run_sync(
-            lambda conn: context.configure(
-                connection=conn,
-                target_metadata=target_metadata,
-                render_as_batch=True,
-            )
-        )
-        with context.begin_transaction():
-            context.run_migrations()
+        await connection.run_sync(_do_run_migrations)
 
     await engine.dispose()
 

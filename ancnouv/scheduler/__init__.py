@@ -204,7 +204,7 @@ async def main_async(config: Config) -> None:
     try:
         await bot_app.initialize()
         await bot_app.start()
-        await bot_app.updater.start_polling(stop_signals=None)
+        await bot_app.updater.start_polling()
         await stop_event.wait()  # bloque jusqu'à CancelledError (KeyboardInterrupt/SIGTERM)
     except asyncio.CancelledError:
         pass

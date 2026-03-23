@@ -156,6 +156,7 @@ class Config(BaseSettings):
     def settings_customise_sources(cls, settings_cls, **kwargs):
         return (
             kwargs["env_settings"],
+            kwargs["dotenv_settings"],
             YamlConfigSettingsSource(settings_cls),
             kwargs["init_settings"],
         )
