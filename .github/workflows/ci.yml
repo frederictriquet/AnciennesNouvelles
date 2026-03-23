@@ -57,8 +57,8 @@ jobs:
           dockerfile: Dockerfile
           push: true
           tags: ghcr.io/${{ env.REPO }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=ancnouv
+          cache-to: type=gha,mode=max,scope=ancnouv
 
       - name: Build and push ancnouv-images (serveur d'images)
         uses: docker/build-push-action@v5
@@ -67,5 +67,5 @@ jobs:
           dockerfile: Dockerfile.images
           push: true
           tags: ghcr.io/${{ env.REPO }}-images:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=ancnouv-images
+          cache-to: type=gha,mode=max,scope=ancnouv-images
