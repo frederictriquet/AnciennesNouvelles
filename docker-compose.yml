@@ -1,0 +1,43 @@
+version: "3.9"
+
+services:
+  ancnouv:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - ancnouv-images
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./config.yml:/app/config.yml:ro
+      - ./.env:/app/.env:ro
+      # [D-04] assets/ monté en rw — requis si setup fonts est lancé dans le conteneur.
+      # Solution recommandée : télécharger les polices AVANT docker compose up :
+      #   python -m ancnouv setup fonts  (sur la machine hôte, dans .venv)
+      #   puis les polices sont présentes dans ./assets/fonts/ au moment du build.
+      # Ne PAS monter en :ro si setup fonts doit écrire dans le conteneur.
+      - ./assets:/app/assets
+    environment:
+      - TZ=Europe/Paris
+    networks:
+      - ancnouv-net
+
+  ancnouv-images:
+    build:
+      context: .
+      dockerfile: Dockerfile.images
+    restart: unless-stopped
+    ports:
+      # Exposé uniquement sur le loopback — nginx proxie depuis l'extérieur
+      - "127.0.0.1:8765:8765"
+    volumes:
+      - ./data/images:/app/data/images
+      - ./.env:/app/.env:ro
+    networks:
+      - ancnouv-net
+
+networks:
+  ancnouv-net:
+    driver: bridge

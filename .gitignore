@@ -1,0 +1,25 @@
+# Secrets
+.env
+
+# Données runtime
+data/
+logs/
+
+# Polices (téléchargées via setup fonts)
+assets/fonts/*.ttf
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/settings.json
+.idea/

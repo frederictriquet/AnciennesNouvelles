@@ -1,0 +1,24 @@
+# Données runtime
+data/
+logs/
+scheduler.db
+
+# Secrets
+.env
+
+# Dev
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+tests/
+
+# VCS
+.git/
+.gitignore
+
+# Docs (non nécessaires dans le conteneur)
+# *.md exclut intentionnellement TOUS les fichiers Markdown (README.md, CLAUDE.md, docs/*.md)
+docs/
+*.md

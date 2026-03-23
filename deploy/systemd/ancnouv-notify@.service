@@ -1,0 +1,8 @@
+[Unit]
+Description=Notification crash %i
+
+[Service]
+Type=oneshot
+# [D-07] Vérifier que TELEGRAM_CHAT_ID est non vide avant d'envoyer la requête
+ExecStart=/bin/sh -c 'if [ -n "$TELEGRAM_CHAT_ID" ]; then curl -s "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" -d "chat_id=${TELEGRAM_CHAT_ID}" -d "text=ancnouv en etat FAILED apres 3 crashs. Intervention manuelle requise."; fi'
+EnvironmentFile=/home/ancnouv/AnciennesNouvelles/.env

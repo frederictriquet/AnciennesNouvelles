@@ -1,0 +1,23 @@
+[Unit]
+Description=Anciennes Nouvelles — Serveur d'images
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ancnouv
+Group=ancnouv
+WorkingDirectory=/home/ancnouv/AnciennesNouvelles
+Environment=TZ=Europe/Paris
+EnvironmentFile=/home/ancnouv/AnciennesNouvelles/.env
+ExecStart=/home/ancnouv/AnciennesNouvelles/.venv/bin/python -m ancnouv images-server --port 8765
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ancnouv-images
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

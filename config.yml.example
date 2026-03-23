@@ -1,0 +1,72 @@
+data_dir: "data"
+log_level: "INFO"
+
+database:
+  filename: "ancnouv.db"
+  auto_backup: true
+  backup_keep: 7
+
+scheduler:
+  timezone: "Europe/Paris"
+  generation_cron: "0 */4 * * *"
+  max_pending_posts: 1
+  approval_timeout_hours: 48
+  auto_publish: false
+
+content:
+  prefetch_days: 30
+  wikipedia_event_types:
+    - events
+  wikipedia_lang_primary: "fr"
+  wikipedia_lang_fallback: "en"
+  wikipedia_min_events: 3
+  deduplication_policy: "never"
+  deduplication_window_days: 365
+  image_retention_days: 7
+  low_stock_threshold: 3
+  mix_ratio: 0.2
+  rss:
+    enabled: false
+    min_delay_days: 90
+    max_age_days: 180
+    feeds: []
+
+image:
+  width: 1080
+  height: 1350
+  jpeg_quality: 95
+  paper_texture: true
+  paper_texture_intensity: 8
+
+caption:
+  hashtags:
+    - "#histoire"
+    - "#onthisday"
+    - "#anciennesnews"
+    - "#memoireducollectif"
+    - "#ephemeride"
+  hashtags_separator: "\n\n"
+  include_wikipedia_url: false
+  source_template_fr: "Source : Wikipédia"
+  source_template_en: "Source : Wikipedia (EN)"
+
+image_hosting:
+  backend: "local"
+  public_base_url: "https://VOTRE-IP-OU-DOMAINE:8765"
+  local_port: 8765
+  remote_upload_url: ""
+
+instagram:
+  enabled: false
+  user_id: ""
+  api_version: "v21.0"
+  max_daily_posts: 25
+
+facebook:
+  enabled: false
+  page_id: ""
+
+telegram:
+  authorized_user_ids:
+    - 123456789
+  notification_debounce: 2

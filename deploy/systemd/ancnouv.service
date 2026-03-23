@@ -1,0 +1,27 @@
+[Unit]
+Description=Anciennes Nouvelles — Bot Instagram
+After=network-online.target ancnouv-images.service
+Wants=network-online.target
+OnFailure=ancnouv-notify@%n.service
+# Protection contre les crash loops : max 3 redémarrages en 5 minutes
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=ancnouv
+Group=ancnouv
+WorkingDirectory=/home/ancnouv/AnciennesNouvelles
+Environment=TZ=Europe/Paris
+EnvironmentFile=/home/ancnouv/AnciennesNouvelles/.env
+ExecStart=/home/ancnouv/AnciennesNouvelles/.venv/bin/python -m ancnouv start
+Restart=on-failure
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=ancnouv
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

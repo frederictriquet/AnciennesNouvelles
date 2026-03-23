@@ -1,0 +1,25 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Le serveur d'images n'utilise qu'aiohttp
+# [DEP-C7] requirements.txt complet utilisé ici (Pillow, APScheduler, numpy, etc.)
+# car ancnouv/__main__.py importe config.py qui importe pydantic-settings.
+# Amélioration possible v2 : créer requirements-images.txt avec seulement aiohttp + pydantic-settings.
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Package minimal : __init__, __main__, config, publisher (pour image_hosting)
+COPY ancnouv/__init__.py        ./ancnouv/__init__.py
+COPY ancnouv/__main__.py        ./ancnouv/__main__.py
+COPY ancnouv/config.py          ./ancnouv/config.py
+COPY ancnouv/publisher/__init__.py          ./ancnouv/publisher/__init__.py
+COPY ancnouv/publisher/image_hosting.py     ./ancnouv/publisher/image_hosting.py
+# [D-02] publisher/__init__.py NE DOIT PAS contenir d'imports top-level de
+# InstagramPublisher ou FacebookPublisher — ces modules ne sont pas copiés ici.
+
+RUN mkdir -p data/images
+
+# images-server ne charge PAS la config complète — lit uniquement IMAGE_SERVER_TOKEN
+# depuis l'environnement (voir CLI.md — _dispatch_inner)
+CMD ["python", "-m", "ancnouv", "images-server", "--port", "8765"]
