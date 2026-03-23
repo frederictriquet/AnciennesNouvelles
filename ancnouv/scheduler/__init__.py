@@ -147,14 +147,16 @@ async def main_async(config: Config) -> None:
     4. init_context       — singletons initialisés, session factory rebindée
     5. create_scheduler   — jobs ajoutés, pas encore démarrés
     6. start_local_image_server (si backend=local) — URLs accessibles avant recover
-    7. recover_pending_posts — états intermédiaires après crash
-    8. scheduler.start()  — les jobs peuvent appeler get_config()/get_engine()
-    9. job_check_token()  — vérification token immédiate [SC-M4]
-    10. run_polling        — boucle principale PTB (bloquante)
-    11. shutdown           — arrêt propre à la sortie
+    7. bot_app.initialize() — client HTTP PTB prêt avant tout appel Telegram
+    8. recover_pending_posts — états intermédiaires après crash
+    9. scheduler.start()  — les jobs peuvent appeler get_config()/get_engine()
+    10. job_check_token()  — vérification token immédiate [SC-M4]
+    11. run_polling        — boucle principale PTB (bloquante)
+    12. shutdown           — arrêt propre à la sortie
 
-    Inverser 4 et 8 → RuntimeError dès le premier job déclenché.
-    Inverser 6 et 7 → recover_pending_posts tente des URLs inaccessibles [SC-C6].
+    Inverser 4 et 9 → RuntimeError dès le premier job déclenché.
+    Inverser 6 et 8 → recover_pending_posts tente des URLs inaccessibles [SC-C6].
+    Inverser 7 et 8 → notify_all() dans recover lève RuntimeError (client HTTP non initialisé).
     """
     from ancnouv.bot.bot import create_application
     from ancnouv.db.session import get_session, init_db
@@ -185,26 +187,28 @@ async def main_async(config: Config) -> None:
         images_dir.mkdir(parents=True, exist_ok=True)
         image_runner = await start_local_image_server(images_dir, config.image_hosting.local_port)
 
-    # 7. Récupération des posts en état intermédiaire
-    async with get_session() as session:
-        await recover_pending_posts(session, bot_app.bot, config)
-
-    # 8. Démarrage scheduler
-    scheduler.start()
-    logger.info("Scheduler APScheduler démarré.")
-
-    # 9. Vérification token au démarrage [SC-M4]
-    await job_check_token()
-
-    logger.info("Démarrage du bot Telegram (polling)...")
-
     # 10. Boucle principale PTB — pattern async sans run_polling() [PTB v20]
+    # initialize() avant les steps 7-9 : requis pour les appels Telegram (notify_all, etc.)
     stop_event = asyncio.Event()
 
     try:
         await bot_app.initialize()
+
+        # 7. Récupération des posts en état intermédiaire
+        async with get_session() as session:
+            await recover_pending_posts(session, bot_app.bot, config)
+
+        # 8. Démarrage scheduler
+        scheduler.start()
+        logger.info("Scheduler APScheduler démarré.")
+
+        # 9. Vérification token au démarrage [SC-M4]
+        await job_check_token()
+
+        logger.info("Démarrage du bot Telegram (polling)...")
+
         await bot_app.start()
-        await bot_app.updater.start_polling()
+        await bot_app.updater.start_polling(drop_pending_updates=True)
         await stop_event.wait()  # bloque jusqu'à CancelledError (KeyboardInterrupt/SIGTERM)
     except asyncio.CancelledError:
         pass
@@ -233,7 +237,10 @@ async def main_async(config: Config) -> None:
             await bot_app.shutdown()
         except Exception as exc:
             logger.warning("Erreur arrêt bot_app : %s", exc)
-        scheduler.shutdown(wait=False)
+        try:
+            scheduler.shutdown(wait=False)
+        except Exception as exc:
+            logger.warning("Erreur arrêt scheduler : %s", exc)
         if image_runner is not None:
             try:
                 await image_runner.cleanup()
