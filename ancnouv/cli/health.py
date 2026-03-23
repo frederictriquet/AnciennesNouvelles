@@ -107,11 +107,18 @@ async def run_health(config: Config) -> int:
     # ── Wikipedia API ───────────────────────────────────────────────────────
     try:
         import httpx
+        _ua = "AnciennesNouvelles/1.0 (https://github.com/anciennesnouv)"
         async with httpx.AsyncClient(timeout=5) as client:
             resp = await client.head(
-                "https://api.wikimedia.org/feed/v1/wikipedia/fr/onthisday/events/1/1"
+                "https://api.wikimedia.org/feed/v1/wikipedia/fr/onthisday/events/01/01",
+                headers={"User-Agent": _ua},
             )
-        if resp.status_code in (200, 404, 405):
+            if resp.status_code == 405:
+                resp = await client.get(
+                    "https://api.wikimedia.org/feed/v1/wikipedia/fr/onthisday/events/01/01",
+                    headers={"User-Agent": _ua},
+                )
+        if resp.status_code in (200, 404):
             lines.append("Wikipedia API  : OK")
         else:
             lines.append(f"Wikipedia API  : ⚠ HTTP {resp.status_code}")
@@ -155,11 +162,12 @@ async def run_health(config: Config) -> int:
     if db_ok:
         try:
             from apscheduler.triggers.cron import CronTrigger
-            from datetime import datetime
-            import pytz
-            tz = pytz.timezone(config.scheduler.timezone)
-            trigger = CronTrigger.from_crontab(config.scheduler.generation_cron, timezone=tz)
-            next_fire = trigger.get_next_fire_time(None, datetime.now(tz))
+            from datetime import datetime, timezone as dt_timezone
+            trigger = CronTrigger.from_crontab(
+                config.scheduler.generation_cron,
+                timezone=config.scheduler.timezone,
+            )
+            next_fire = trigger.get_next_fire_time(None, datetime.now(dt_timezone.utc))
             next_str = next_fire.strftime("%d/%m/%Y %H:%M") if next_fire else "inconnu"
             state_str = "PAUSE" if paused else "ACTIF"
             lines.append(f"Scheduler      : {state_str} (prochain post : {next_str})")
