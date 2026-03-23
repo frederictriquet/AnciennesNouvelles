@@ -67,5 +67,4 @@ jobs:
           dockerfile: Dockerfile.images
           push: true
           tags: ghcr.io/${{ env.REPO }}-images:latest
-          cache-from: type=gha,scope=ancnouv-images
-          cache-to: type=gha,mode=max,scope=ancnouv-images
+          no-cache: true
