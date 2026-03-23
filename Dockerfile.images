@@ -13,6 +13,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY ancnouv/__init__.py        ./ancnouv/__init__.py
 COPY ancnouv/__main__.py        ./ancnouv/__main__.py
 COPY ancnouv/config.py          ./ancnouv/config.py
+COPY ancnouv/exceptions.py      ./ancnouv/exceptions.py
 COPY ancnouv/publisher/__init__.py          ./ancnouv/publisher/__init__.py
 COPY ancnouv/publisher/image_hosting.py     ./ancnouv/publisher/image_hosting.py
 # [D-02] publisher/__init__.py NE DOIT PAS contenir d'imports top-level de

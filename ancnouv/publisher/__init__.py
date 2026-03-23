@@ -10,9 +10,6 @@ from typing import TYPE_CHECKING
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ancnouv.db.utils import get_scheduler_state, set_scheduler_state
-from ancnouv.exceptions import PublisherError
-
 if TYPE_CHECKING:
     from ancnouv.db.models import Post
     from ancnouv.publisher.facebook import FacebookPublisher
@@ -31,6 +28,9 @@ async def _check_and_increment_daily_count(
     Lève PublisherError si la limite est atteinte [RF-3.4.7].
     N'est appelé que si Instagram est activé (ig_publisher is not None) [IG-F10].
     """
+    from ancnouv.db.utils import get_scheduler_state, set_scheduler_state
+    from ancnouv.exceptions import PublisherError
+
     today_str = datetime.now(timezone.utc).date().isoformat()
     count_date = await get_scheduler_state(session, "daily_post_count_date")
 
@@ -74,6 +74,8 @@ async def publish_to_all_platforms(
     (approbation Telegram valide le contenu) [IG-4].
     """
     from ancnouv.db.session import get_session
+    from ancnouv.db.utils import get_scheduler_state
+    from ancnouv.exceptions import PublisherError
 
     # Vérification publications_suspended hors race condition [SC-2]
     suspended = await get_scheduler_state(session, "publications_suspended")
