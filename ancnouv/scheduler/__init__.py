@@ -208,6 +208,19 @@ async def main_async(config: Config) -> None:
         await stop_event.wait()  # bloque jusqu'à CancelledError (KeyboardInterrupt/SIGTERM)
     except asyncio.CancelledError:
         pass
+    except Exception as exc:
+        # [SC-M5] Conflict Telegram : instance précédente encore active.
+        # Attente 60s avant shutdown pour laisser Telegram invalider la session —
+        # évite le crash loop où chaque redémarrage Docker génère un nouveau Conflict.
+        from telegram.error import Conflict as TelegramConflict
+        if isinstance(exc, TelegramConflict):
+            logger.warning(
+                "Conflit Telegram — instance précédente encore active. "
+                "Attente 60s avant redémarrage."
+            )
+            await asyncio.sleep(60)
+        else:
+            raise
     finally:
         # 11. Arrêt propre
         logger.info("Arrêt en cours...")
