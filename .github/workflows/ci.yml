@@ -19,11 +19,8 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install uv
-        run: pip install uv
-
       - name: Install dependencies
-        run: uv pip install --system -r requirements-dev.txt
+        run: pip install -r requirements-dev.txt
 
       - name: Run tests with coverage
         run: pytest --cov=ancnouv --cov-report=term-missing --cov-fail-under=80 -q
