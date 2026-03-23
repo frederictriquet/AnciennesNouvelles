@@ -6,12 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Environnement
 
-Le projet utilise **uv** avec un virtualenv dans `.venv/` (Python 3.14) :
+Le projet utilise **uv** avec un virtualenv dans `.venv/` (**Python 3.12 obligatoire**) :
 
 ```bash
+uv venv --python 3.12                            # créer le venv (Python 3.12 requis — voir note)
 source .venv/bin/activate                        # activer le venv
 uv pip install -r requirements-dev.txt           # installer toutes les dépendances (prod + test)
 ```
+
+> **⚠️ Python 3.14 incompatible avec PTB 20.x (dev local uniquement)** — En Python 3.14,
+> `AbstractAsyncContextManager` a reçu `__slots__ = ()`, supprimant le `__dict__` de fallback
+> des sous-classes. Or PTB 20.8 assigne `self.__polling_cleanup_cb` dans `Updater.__init__` sans
+> le déclarer dans `__slots__`, ce qui lève `AttributeError: 'Updater' object has no attribute
+> '_Updater__polling_cleanup_cb'` au démarrage. Ce bug n'affecte pas la production (Dockerfile
+> Python 3.12). **Ne pas upgrader le venv local au-delà de Python 3.13 sans vérifier PTB.**
 
 `requirements-dev.txt` inclut `requirements.txt` + pytest, pytest-asyncio, pytest-cov, pytest-httpx, freezegun.
 
@@ -147,12 +155,22 @@ Table `scheduler_state` (non-ORM) : clés critiques `paused`, `daily_post_count`
 | Bibliothèque | Version requise | Incompatible avec |
 |---|---|---|
 | apscheduler | ~3.10 | 4.x (SQLAlchemyJobStore supprimé) |
-| python-telegram-bot | ~20.0 | 13.x (API async réécrite) |
+| python-telegram-bot | ~20.0 | 13.x (API async réécrite) ; Python 3.14+ (bug `__slots__` Updater, dev local) |
 | sqlalchemy | ~2.0 | 1.x (API ORM changée) |
 | aiosqlite | ≥0.20.0 | <0.20.0 (BEGIN EXCLUSIVE absent) |
 | numpy | ≥1.24,<2 | 2.x (np.random.randint API modifiée) |
 
 Python 3.12+ requis.
+
+**Telegram Conflict crash loop (production)** — `telegram.error.Conflict: terminated by other
+getUpdates request` en boucle au redémarrage Docker. Causes possibles : container précédent pas
+encore terminé côté Telegram, ou autre instance locale active (ex: container Docker local
+`ancnouv-local`). Fix appliqué dans `scheduler/__init__.py` :
+- `drop_pending_updates=True` sur `start_polling()` pour invalider toute session active avant de
+  démarrer le polling
+- 60s de sleep avant shutdown sur `TelegramConflict` pour laisser Telegram expirer la session
+- `scheduler.shutdown()` wrappé dans `try/except` dans `finally` pour éviter
+  `SchedulerNotRunningError` si le scheduler n'a pas encore démarré
 
 ### Configuration
 

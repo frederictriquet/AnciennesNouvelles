@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import signal
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -190,6 +191,13 @@ async def main_async(config: Config) -> None:
     # 10. Boucle principale PTB — pattern async sans run_polling() [PTB v20]
     # initialize() avant les steps 7-9 : requis pour les appels Telegram (notify_all, etc.)
     stop_event = asyncio.Event()
+
+    # Handler SIGTERM : Docker envoie SIGTERM pour stopper le container.
+    # Sans handler, Python est tué par l'OS immédiatement (finally ne s'exécute pas,
+    # updater.stop() n'est jamais appelé, Telegram conserve la session getUpdates active
+    # brièvement → Conflict au redémarrage). [SC-M5]
+    loop = asyncio.get_running_loop()
+    loop.add_signal_handler(signal.SIGTERM, stop_event.set)
 
     try:
         await bot_app.initialize()
