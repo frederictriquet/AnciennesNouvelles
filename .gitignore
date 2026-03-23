@@ -1,5 +1,6 @@
 # Secrets
 .env
+config.yml
 
 # Données runtime
 data/
