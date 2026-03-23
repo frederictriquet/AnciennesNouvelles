@@ -47,13 +47,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Normaliser le nom du dépôt en minuscules
+        run: echo "REPO=${GITHUB_REPOSITORY,,}" >> $GITHUB_ENV
+
       - name: Build and push ancnouv (app principale)
         uses: docker/build-push-action@v5
         with:
           context: .
           dockerfile: Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository }}:latest
+          tags: ghcr.io/${{ env.REPO }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -63,6 +66,6 @@ jobs:
           context: .
           dockerfile: Dockerfile.images
           push: true
-          tags: ghcr.io/${{ github.repository }}-images:latest
+          tags: ghcr.io/${{ env.REPO }}-images:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
