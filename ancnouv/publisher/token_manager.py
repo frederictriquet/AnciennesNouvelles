@@ -25,8 +25,7 @@ _REFRESH_THRESHOLD_DAYS = 7
 def days_until_expiry(expires_at: datetime) -> int:
     """Retourne (expires_at - utcnow()).days — négatif si expiré.
 
-    expires_at est UTC naïf (sans tzinfo). Comparaison avec datetime.utcnow()
-    pour éviter les erreurs de timezone système [IG-2.4].
+    expires_at est UTC naïf (convention interne). Stocké par auth meta et _save_token [IG-2.4].
     """
     now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
     return (expires_at - now_utc).days

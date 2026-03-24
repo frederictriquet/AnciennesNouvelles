@@ -1,7 +1,18 @@
 # Configuration bot Telegram — Phase 5 [SPEC-3.3, docs/TELEGRAM_BOT.md]
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING
+
+from telegram.warnings import PTBUserWarning
+
+# [TELEGRAM_BOT.md] ConversationHandler avec CallbackQueryHandler en entry_point
+# et per_message=False : warning inoffensif pour ce cas d'usage (max_pending_posts=1).
+warnings.filterwarnings(
+    "ignore",
+    message=".*per_message=False.*CallbackQueryHandler.*",
+    category=PTBUserWarning,
+)
 
 from telegram.ext import (
     Application,

@@ -139,7 +139,7 @@ async def _cmd_auth_meta_impl(config: Config, session: AsyncSession) -> int:
         expires_in = long_data.get("expires_in", 5184000)
         expires_at = datetime.fromtimestamp(
             datetime.now(timezone.utc).timestamp() + expires_in, tz=timezone.utc
-        )
+        ).replace(tzinfo=None)  # naïf UTC — cohérent avec token_manager._save_token
 
         # 3. Récupération de l'IG User ID
         resp = await client.get(
