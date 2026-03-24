@@ -82,3 +82,46 @@ class FacebookPublisher:
             )
 
         return facebook_post_id
+
+    async def publish_story(
+        self,
+        image_url: str,
+        session: AsyncSession,
+    ) -> str:
+        """Publie une Story sur la Page Facebook. Retourne story_post_id. [SPEC-7, SPEC-7.3.4]
+
+        Endpoint : POST /{page-id}/photo_stories [SPEC-7.2, IG-F5].
+        """
+        access_token = await self.token_manager.get_valid_token(
+            session, token_kind="page"
+        )
+
+        url = f"https://graph.facebook.com/{self.api_version}/{self.page_id}/photo_stories"
+        payload = {
+            "url": image_url,
+            "access_token": access_token,
+        }
+
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, timeout=30)
+
+        data = response.json()
+
+        if "error" in data:
+            err = data["error"]
+            code = err.get("code", 0)
+            message = err.get("message", str(err))
+            if code == 190:
+                raise PublisherError(
+                    f"Token Meta invalide ou révoqué (code 190) : {message}"
+                )
+            raise PublisherError(f"Meta Facebook Story API error {code}: {message}")
+
+        response.raise_for_status()
+
+        story_id = data.get("post_id") or data.get("id")
+        if not story_id:
+            raise PublisherError(
+                "Réponse Facebook Story invalide : ni post_id ni id dans la réponse."
+            )
+        return story_id

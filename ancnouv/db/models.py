@@ -159,6 +159,10 @@ class Post(Base):
     # Container Instagram (protection crash entre étape 1 et 2)
     ig_container_id: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Story — image et résultats [SPEC-7, SPEC-7.4]
+    story_image_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    story_post_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     # Résultats par plateforme
     instagram_post_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     instagram_error: Mapped[str | None] = mapped_column(Text, nullable=True)

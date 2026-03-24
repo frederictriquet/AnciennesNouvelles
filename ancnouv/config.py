@@ -119,6 +119,12 @@ class TelegramConfig(BaseSettings):
     notification_debounce: int = Field(default=2, ge=0)
 
 
+class StoriesConfig(BaseSettings):
+    """Configuration des Stories Instagram + Facebook. [SPEC-7, RF-7.3.5]"""
+    enabled: bool = False
+    max_text_chars: int = Field(default=400, ge=50, le=1000)
+
+
 # Placeholder évitant une liste de rejet dans validate_image_hosting
 _URL_REJECT_PATTERNS = ("VOTRE", "VOTRE-IP", "example", "localhost")
 
@@ -151,6 +157,7 @@ class Config(BaseSettings):
     instagram: InstagramConfig = InstagramConfig()
     facebook: FacebookConfig = FacebookConfig()
     telegram: TelegramConfig = TelegramConfig()
+    stories: StoriesConfig = StoriesConfig()
 
     @classmethod
     def settings_customise_sources(cls, settings_cls, **kwargs):

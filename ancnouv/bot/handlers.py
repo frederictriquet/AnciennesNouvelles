@@ -111,7 +111,7 @@ async def _publish_approved_post(
     from ancnouv.publisher.image_hosting import upload_image
     from ancnouv.publisher.token_manager import TokenManager
 
-    # Étape 1 : upload si non encore fait [TG-F6]
+    # Étape 1 : upload feed si non encore fait [TG-F6]
     if not post.image_public_url:
         try:
             assert post.image_path is not None  # Garanti par handle_approve [TG-F6]
@@ -125,6 +125,15 @@ async def _publish_approved_post(
                 "Upload image échoué après 3 tentatives. Vérifier le service d'hébergement."
             )
             return
+
+    # Upload story si activé et image disponible [SPEC-7, RF-7.3.3]
+    story_image_url: str | None = None
+    if config.stories.enabled and post.story_image_path:
+        try:
+            story_image_url = await upload_image(Path(post.story_image_path), config)
+        except ImageHostingError as exc:
+            # Non-bloquant [RF-7.3.6] : on continue sans Story
+            logger.warning("Upload Story échoué (non-bloquant) : %s", exc)
 
     # Étape 2 : instancier les publishers
     async def _notify(msg: str) -> None:
@@ -156,9 +165,10 @@ async def _publish_approved_post(
             config.instagram.api_version,
         )
 
-    # Étape 3 : publication
+    # Étape 3 : publication feed + stories [SPEC-7, RF-7.3.3]
     results = await publish_to_all_platforms(
-        post, post.image_public_url, ig_publisher, fb_publisher, session
+        post, post.image_public_url, ig_publisher, fb_publisher, session,
+        story_image_url=story_image_url,
     )
 
     # Étape 4 : notification résultat [TELEGRAM_BOT.md — tableau notifications]

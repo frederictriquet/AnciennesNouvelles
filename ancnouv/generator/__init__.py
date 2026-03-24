@@ -15,11 +15,16 @@ from ancnouv.db.models import Event, Post, RssArticle
 logger = logging.getLogger(__name__)
 
 
-def get_image_path(config) -> Path:
-    """Construit le chemin pour la prochaine image générée. [IMAGE_GENERATION.md]"""
+def get_image_path(config) -> tuple[Path, Path]:
+    """Construit les chemins feed + story pour la prochaine image générée. [IMAGE_GENERATION.md, SPEC-7.3.7]
+
+    Retourne (feed_path, story_path) basés sur le même UUID.
+    story_path = {uuid}_story.jpg [RF-7.3.7].
+    """
     images_dir = Path(config.data_dir) / "images"
     images_dir.mkdir(parents=True, exist_ok=True)
-    return images_dir / f"{uuid4()}.jpg"
+    uid = uuid4()
+    return images_dir / f"{uid}.jpg", images_dir / f"{uid}_story.jpg"
 
 
 async def generate_post(session: AsyncSession) -> Post | None:
@@ -30,7 +35,7 @@ async def generate_post(session: AsyncSession) -> Post | None:
     Guard max_pending_posts : retourne None si déjà atteint. [RF-3.2.7, T-08]
     """
     from ancnouv.generator.caption import format_caption, format_caption_rss
-    from ancnouv.generator.image import fetch_thumbnail, generate_image
+    from ancnouv.generator.image import fetch_thumbnail, generate_image, generate_story_image
     from ancnouv.generator.selector import get_effective_query_params, select_article, select_event
     from ancnouv.scheduler.context import get_config
 
@@ -71,9 +76,18 @@ async def generate_post(session: AsyncSession) -> Post | None:
     # Téléchargement thumbnail (async)
     thumbnail = await fetch_thumbnail(getattr(source, "image_url", None))
 
-    # Génération image (synchrone — ~100ms acceptable sur RPi4) [IMAGE_GENERATION.md]
-    output_path = get_image_path(config)
+    # Génération image feed (synchrone — ~100ms acceptable sur RPi4) [IMAGE_GENERATION.md]
+    output_path, story_path = get_image_path(config)
     generate_image(source, config, output_path, thumbnail=thumbnail)
+
+    # Génération image Story si activé [SPEC-7, RF-7.3.1]
+    story_image_path: str | None = None
+    if config.stories.enabled:
+        try:
+            generate_story_image(source, config, story_path, thumbnail=thumbnail)
+            story_image_path = str(story_path)
+        except Exception as exc:
+            logger.warning("Génération Story échouée (non-bloquant) : %s", exc)
 
     # Formatage légende
     if isinstance(source, RssArticle):
@@ -88,6 +102,7 @@ async def generate_post(session: AsyncSession) -> Post | None:
         article_id=source.id if isinstance(source, RssArticle) else None,
         caption=caption,
         image_path=str(output_path),
+        story_image_path=story_image_path,
         status="pending_approval",
     )
     session.add(post)

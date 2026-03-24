@@ -230,33 +230,45 @@ def _draw_decorative_border(draw: ImageDraw.ImageDraw, W: int, H: int, colors: d
 
 
 def _draw_masthead(
-    draw: ImageDraw.ImageDraw, W: int, masthead_text: str, fonts: dict, colors: dict
+    draw: ImageDraw.ImageDraw,
+    W: int,
+    masthead_text: str,
+    fonts: dict,
+    colors: dict,
+    center_y: int = 115,
 ) -> None:
-    """Masthead centré dans la zone y=60–170. [IMG-10, IMG-4]
+    """Masthead centré horizontalement, ancré sur center_y. [IMG-10, IMG-4]
 
     [IMG-10] Centrage horizontal via draw.textbbox — plus précis que anchor='mt'.
+    center_y = 115 pour le feed (zone y=60–170) ; ajustable pour la Story [SPEC-7].
     """
     font = fonts["masthead"]
     bbox = draw.textbbox((0, 0), masthead_text, font=font)
     text_w = bbox[2] - bbox[0]
     text_h = bbox[3] - bbox[1]
     x = (W - text_w) // 2
-    y = 115 - text_h // 2  # Centré dans zone y=60–170 (centre=115)
+    y = center_y - text_h // 2
     draw.text((x, y), masthead_text, fill=colors["accent"], font=font)
 
 
 def _draw_date_banner(
-    draw: ImageDraw.ImageDraw, W: int, time_ago: str, date_str: str, fonts: dict, colors: dict
+    draw: ImageDraw.ImageDraw,
+    W: int,
+    time_ago: str,
+    date_str: str,
+    fonts: dict,
+    colors: dict,
+    y_time_ago: int = 185,
+    y_date_str: int = 230,
 ) -> None:
-    """Banner date : two lignes centrées dans zone y=180–260. [IMG-11]
+    """Banner date : deux lignes centrées. [IMG-11]
 
-    time_ago  : y=185, police date_large (40px)
-    date_str  : y=230, police date_small (32px)
-    [IMG-11] Les positions y=185 et y=230 garantissent l'absence de chevauchement.
+    y_time_ago=185 / y_date_str=230 pour le feed ; ajustables pour la Story [SPEC-7].
+    [IMG-11] L'écart 45px garantit l'absence de chevauchement (date_large 40px).
     """
     for text, y, font_key in (
-        (time_ago, 185, "date_large"),
-        (date_str, 230, "date_small"),
+        (time_ago, y_time_ago, "date_large"),
+        (date_str, y_date_str, "date_small"),
     ):
         font = fonts[font_key]
         bbox = draw.textbbox((0, 0), text, font=font)
@@ -338,17 +350,24 @@ def _draw_event_text(
 
 
 def _draw_footer(
-    draw: ImageDraw.ImageDraw, W: int, H: int, source_text: str, fonts: dict, colors: dict
+    draw: ImageDraw.ImageDraw,
+    W: int,
+    H: int,
+    source_text: str,
+    fonts: dict,
+    colors: dict,
+    footer_y: int | None = None,
 ) -> None:
-    """Footer centré à y = H - 60 (adaptatif aux dimensions). [IMG-3]
+    """Footer centré. [IMG-3]
 
-    Zone footer : y=1250–1330. Position texte : y=1290 = H - 60.
+    footer_y explicite (Story) ou calculé comme H - 60 (feed, défaut).
+    Zone footer feed : y=1290 = 1350 - 60.
     """
     font = fonts["footer"]
     bbox = draw.textbbox((0, 0), source_text, font=font)
     text_w = bbox[2] - bbox[0]
     x = (W - text_w) // 2
-    y = H - 60  # = 1290 pour H=1350
+    y = footer_y if footer_y is not None else H - 60
     draw.text((x, y), source_text, fill=colors["text_secondary"], font=font)
 
 
@@ -494,6 +513,180 @@ def _generate_image_inner(
     # 7. Sauvegarde JPEG
     img.save(str(output_path), "JPEG", quality=config.image.jpeg_quality, optimize=True)
     return output_path
+
+
+# ---------------------------------------------------------------------------
+# Story (9:16) — zones de sécurité [SPEC-7, SPEC-7.4]
+# ---------------------------------------------------------------------------
+
+# Pixels masqués par l'UI Stories (interface utilisateur Instagram/Facebook)
+STORY_H = 1920
+STORY_SAFE_TOP = 270   # ~250px spec + marge
+STORY_SAFE_BOT = 400   # ~400px spec
+
+
+def _generate_story_inner(
+    source: "Event | RssArticle",
+    config: "Config",
+    output_path: Path,
+    thumbnail: Image.Image | None = None,
+) -> Path:
+    """Séquence de rendu Pillow 1080×1920 pour Story. [SPEC-7, SPEC-7.1, SPEC-7.4]
+
+    Design distinctif du feed [RF-7bis.3] :
+    - Bandeau masthead en haut (petite police)
+    - time_ago en hero (PlayfairDisplay 80px, accent, centré)
+    - date_str centré
+    - Texte condensé gauche-aligné
+    - Source centré en pied
+
+    Tout le contenu dans y=[270, 1520] (zones de sécurité Stories).
+    """
+    from ancnouv.db.models import RssArticle
+    from ancnouv.utils.text_helpers import truncate_for_image
+
+    W = config.image.width   # 1080
+    H = STORY_H              # 1920
+
+    safe_top = STORY_SAFE_TOP      # y=270
+    safe_bot = H - STORY_SAFE_BOT  # y=1520
+
+    # Sélection du template époque [SPEC-7bis, RF-7bis.3]
+    if isinstance(source, RssArticle):
+        colors = _get_template_for_year(None, config.image.force_template or "xxi")
+    else:
+        event_year = getattr(source, "year", None)
+        colors = _get_template_for_year(event_year, config.image.force_template)
+
+    # 1. Fond + texture
+    img = Image.new("RGB", (W, H), color=colors["background"])
+    if config.image.paper_texture:
+        img = _draw_paper_texture(img, intensity=config.image.paper_texture_intensity)
+
+    draw = ImageDraw.Draw(img)
+    fonts = _load_fonts()
+
+    # Police héros : PlayfairDisplay-Bold 80px (chargée à la demande — spécifique Story)
+    hero_font = load_font(FONTS_DIR / "PlayfairDisplay-Bold.ttf", 80)
+
+    # 2. Extraction du contenu source
+    if isinstance(source, RssArticle):
+        time_ago = "ACTUALITÉ RSS"
+        date_str = _format_datetime_fr(source.published_at)
+        text = truncate_for_image(
+            f"{source.title}\n\n{source.summary or ''}",
+            max_chars=config.stories.max_text_chars,
+        )
+        source_text = f"Source : {source.feed_name}"
+    else:
+        year = getattr(source, "year", None)
+        if year is None:
+            time_ago = "Date inconnue"
+            date_str = "Date inconnue"
+        else:
+            time_ago = _compute_time_ago_int(source.year, source.month, source.day)
+            date_str = _format_date_int(source.year, source.month, source.day)
+        text = truncate_for_image(
+            getattr(source, "description", "") or "",
+            max_chars=config.stories.max_text_chars,
+        )
+        text = text[:1].upper() + text[1:] if text else text
+        if getattr(source, "source_lang", "fr") == "en":
+            source_text = config.caption.source_template_en
+        else:
+            source_text = config.caption.source_template_fr
+
+    # ── Layout ──────────────────────────────────────────────────────────────
+    # Bandeau masthead : deux filets encadrant le titre réduit
+    _draw_divider(draw, W, safe_top + 22, colors)
+    mast_font = fonts["footer"]
+    mast_bbox = draw.textbbox((0, 0), config.image.masthead_text, font=mast_font)
+    mast_w = mast_bbox[2] - mast_bbox[0]
+    draw.text(
+        ((W - mast_w) // 2, safe_top + 30),
+        config.image.masthead_text,
+        fill=colors["text_secondary"],
+        font=mast_font,
+    )
+    _draw_divider(draw, W, safe_top + 62, colors)
+
+    # Hero : time_ago en grand (centré, max 2 lignes, couleur accent)
+    hero_lines = _wrap_text(draw, time_ago, hero_font, W - 2 * PADDING)[:2]
+    y_hero = safe_top + 110
+    for line in hero_lines:
+        bbox = draw.textbbox((0, 0), line, font=hero_font)
+        lw = bbox[2] - bbox[0]
+        lh = bbox[3] - bbox[1]
+        draw.text(((W - lw) // 2, y_hero), line, fill=colors["accent"], font=hero_font)
+        y_hero += lh + 12
+    y_after_hero = y_hero + 20
+
+    # Date centrée
+    date_font = fonts["date_small"]
+    date_bbox = draw.textbbox((0, 0), date_str, font=date_font)
+    draw.text(
+        ((W - (date_bbox[2] - date_bbox[0])) // 2, y_after_hero),
+        date_str,
+        fill=colors["text_secondary"],
+        font=date_font,
+    )
+    y_after_date = y_after_hero + (date_bbox[3] - date_bbox[1]) + 30
+
+    # Filet séparateur
+    _draw_divider(draw, W, y_after_date, colors)
+
+    # Thumbnail (si disponible) : letterbox entre séparateur et texte
+    y_text_start = y_after_date + 20
+    if thumbnail is not None:
+        thumb_y = y_text_start
+        _draw_thumbnail(img, thumbnail, y=thumb_y, W=W)
+        y_text_start = thumb_y + 320
+
+    # Texte condensé
+    y_footer_div = safe_bot - 70
+    _draw_event_text(
+        draw, W, text,
+        text_y=y_text_start,
+        max_height=y_footer_div - y_text_start - 10,
+        fonts=fonts,
+        colors=colors,
+    )
+
+    # Filet + source en pied
+    _draw_divider(draw, W, y_footer_div, colors)
+    src_font = fonts["footer"]
+    src_bbox = draw.textbbox((0, 0), source_text, font=src_font)
+    draw.text(
+        ((W - (src_bbox[2] - src_bbox[0])) // 2, y_footer_div + 18),
+        source_text,
+        fill=colors["text_secondary"],
+        font=src_font,
+    )
+
+    # 3. Sauvegarde
+    img.save(str(output_path), "JPEG", quality=config.image.jpeg_quality, optimize=True)
+    return output_path
+
+
+def generate_story_image(
+    source: "Event | RssArticle",
+    config: "Config",
+    output_path: Path,
+    thumbnail: Image.Image | None = None,
+) -> Path:
+    """Génère une image Story 1080×1920. [SPEC-7, SPEC-7.1]
+
+    Wrapper : exceptions Pillow réemballées dans GeneratorError.
+    """
+    try:
+        return _generate_story_inner(source, config, output_path, thumbnail)
+    except GeneratorError:
+        raise
+    except Exception as exc:
+        source_id = getattr(source, "id", "unknown")
+        raise GeneratorError(
+            f"Échec génération Story pour id={source_id} : {exc}"
+        ) from exc
 
 
 def generate_image(

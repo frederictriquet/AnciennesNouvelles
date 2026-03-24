@@ -91,6 +91,40 @@ class InstagramPublisher:
         permalink = await self._get_permalink(ig_post_id, access_token)
         return permalink or ig_post_id
 
+    async def publish_story(
+        self,
+        image_url: str,
+        session: AsyncSession,
+    ) -> str:
+        """Publie une Story Instagram. Retourne story_post_id. [SPEC-7, SPEC-7.3.4]
+
+        Flux identique au post feed mais avec media_type=STORIES [SPEC-7.2].
+        Pas de persistance container_id : les Stories sont éphémères (24h).
+        """
+        access_token = await self.token_manager.get_valid_token(session)
+
+        container_id = await self._create_story_container(image_url, access_token)
+        await self._wait_for_container_ready(container_id, access_token)
+        return await self._publish_container(self.ig_user_id, container_id, access_token)
+
+    async def _create_story_container(self, image_url: str, access_token: str) -> str:
+        """Crée le container Story Instagram (media_type=STORIES). [SPEC-7.2]"""
+        url = f"https://graph.facebook.com/{self.api_version}/{self.ig_user_id}/media"
+        payload = {
+            "image_url": image_url,
+            "media_type": "STORIES",
+            "access_token": access_token,
+        }
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload, timeout=30)
+
+        data = response.json()
+        err = _extract_meta_error(data)
+        if err:
+            _raise_meta_error(*err)
+        response.raise_for_status()
+        return data["id"]
+
     async def _get_or_create_container(
         self,
         post: "Post",
