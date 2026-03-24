@@ -154,6 +154,7 @@ async def _cmd_auth_meta_impl(config: Config, session: AsyncSession) -> int:
         ig_username = me.get("name", "")
 
         # 4. Pages administrées → Page Access Token
+        # Tentative 1 : compte personnel direct
         resp = await client.get(
             "https://graph.facebook.com/v21.0/me/accounts",
             params={"access_token": long_token},
@@ -161,10 +162,25 @@ async def _cmd_auth_meta_impl(config: Config, session: AsyncSession) -> int:
         if resp.status_code != 200:
             print(f"Erreur récupération pages : {resp.text}", file=sys.stderr)
             return 1
-        pages_resp = resp.json()
-        pages = pages_resp.get("data", [])
+        pages = resp.json().get("data", [])
+
+        # Tentative 2 : Pages via Meta Business Suite (Business Manager)
         if not pages:
-            print(f"Aucune Page Facebook administrée trouvée. Réponse brute : {pages_resp}", file=sys.stderr)
+            resp_biz = await client.get(
+                "https://graph.facebook.com/v21.0/me/businesses",
+                params={"access_token": long_token},
+            )
+            if resp_biz.status_code == 200:
+                for biz in resp_biz.json().get("data", []):
+                    resp_owned = await client.get(
+                        f"https://graph.facebook.com/v21.0/{biz['id']}/owned_pages",
+                        params={"fields": "id,name,access_token", "access_token": long_token},
+                    )
+                    if resp_owned.status_code == 200:
+                        pages.extend(resp_owned.json().get("data", []))
+
+        if not pages:
+            print("Aucune Page Facebook administrée trouvée (ni via /me/accounts ni via /me/businesses).", file=sys.stderr)
             return 1
 
         # Sélection interactive si plusieurs pages
