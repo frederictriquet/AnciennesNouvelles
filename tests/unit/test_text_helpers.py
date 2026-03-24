@@ -36,8 +36,8 @@ def test_truncate_for_image_long():
     from ancnouv.utils.text_helpers import truncate_for_image
     text = ("mot " * 200).strip()  # 800 chars
     result = truncate_for_image(text, 20)
-    assert len(result) <= 23  # ≤ 20 + "…"
-    assert result.endswith("…")
+    assert len(result) <= 23  # ≤ 20 + "..."
+    assert result.endswith("...")
 
 
 def test_clean_text_strips_control_chars():
