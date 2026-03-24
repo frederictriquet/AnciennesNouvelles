@@ -26,9 +26,11 @@ def days_until_expiry(expires_at: datetime) -> int:
     """Retourne (expires_at - utcnow()).days — négatif si expiré.
 
     expires_at est UTC naïf (convention interne). Stocké par auth meta et _save_token [IG-2.4].
+    Gère également le cas aware pour compatibilité avec des données existantes en DB.
     """
-    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
-    return (expires_at - now_utc).days
+    if expires_at.tzinfo is not None:
+        return (expires_at - datetime.now(timezone.utc)).days
+    return (expires_at - datetime.now(timezone.utc).replace(tzinfo=None)).days
 
 
 def get_alert_threshold(remaining: int) -> int | None:
