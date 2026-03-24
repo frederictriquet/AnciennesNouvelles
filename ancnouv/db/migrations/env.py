@@ -65,6 +65,10 @@ async def run_migrations_online() -> None:
         # [DB-10] PRAGMA avant begin_transaction — ordre obligatoire
         await connection.execute(text("PRAGMA foreign_keys=ON"))
         await connection.run_sync(_do_run_migrations)
+        # [DB-15] SQLAlchemy 2.x : engine.connect() ne commit pas à la sortie.
+        # Les CREATE TABLE (DDL) sont autocommit SQLite, mais l'INSERT dans
+        # alembic_version (DML) est rollback sans ce commit explicite.
+        await connection.commit()
 
     await engine.dispose()
 

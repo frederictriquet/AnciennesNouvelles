@@ -126,7 +126,12 @@ def _dispatch_inner(args: argparse.Namespace) -> int:
         return 1
 
     if command == "start":
+        from ancnouv.db.cli import cmd_db_migrate
         from ancnouv.scheduler import run
+        rc = cmd_db_migrate()
+        if rc != 0:
+            print("Échec des migrations — démarrage annulé.", file=sys.stderr)
+            return rc
         return run(config)
 
     if command == "auth":
