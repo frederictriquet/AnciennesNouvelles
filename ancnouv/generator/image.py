@@ -28,16 +28,92 @@ W_INNER = 1000     # = 1080 - 2 * PADDING
 # .parent.parent.parent = ancnouv/generator/image.py → ancnouv/generator → ancnouv → projet root
 FONTS_DIR = Path(__file__).parent.parent.parent / "assets" / "fonts"
 
-# Palette de couleurs style gazette vintage [IMAGE_GENERATION.md]
-COLORS: dict[str, str] = {
-    "background":      "#F2E8D5",
-    "background_dark": "#E8D9BC",
-    "text_primary":    "#1A1008",
-    "text_secondary":  "#4A3728",
-    "accent":          "#8B2020",
-    "border":          "#2C1810",
-    "divider":         "#6B4C3B",
+# Palettes par époque [SPEC-7bis, RF-7bis.2]
+TEMPLATES: dict[str, dict[str, str]] = {
+    # Antiquité / Moyen Âge (<1500) — parchemin, enluminure
+    "medieval": {
+        "background":      "#F5E6C0",
+        "background_dark": "#E8CC90",
+        "text_primary":    "#2A1505",
+        "text_secondary":  "#6B3A12",
+        "accent":          "#8B1A00",
+        "border":          "#3D1F08",
+        "divider":         "#8B5A2B",
+    },
+    # Époque moderne (1500–1799) — gazette imprimée, sépia, crème cassé
+    "moderne": {
+        "background":      "#F2E8D5",
+        "background_dark": "#E8D9BC",
+        "text_primary":    "#1A1008",
+        "text_secondary":  "#4A3728",
+        "accent":          "#8B2020",
+        "border":          "#2C1810",
+        "divider":         "#6B4C3B",
+    },
+    # XIXe siècle (1800–1899) — journal noir & blanc, gravures
+    "xix": {
+        "background":      "#F5F3EE",
+        "background_dark": "#E8E4DC",
+        "text_primary":    "#1A1A1A",
+        "text_secondary":  "#4A4A4A",
+        "accent":          "#2A2A2A",
+        "border":          "#1A1A1A",
+        "divider":         "#6A6A6A",
+    },
+    # Première moitié XXe (1900–1959) — presse illustrée, Art Déco
+    "xx_first": {
+        "background":      "#FAFAF0",
+        "background_dark": "#EEEEDC",
+        "text_primary":    "#0A0A0A",
+        "text_secondary":  "#3A3A3A",
+        "accent":          "#1A1A1A",
+        "border":          "#0A0A0A",
+        "divider":         "#5A5A5A",
+    },
+    # Deuxième moitié XXe (1960–1999) — journal moderne, couleurs froides
+    "xx_second": {
+        "background":      "#FAFAFA",
+        "background_dark": "#EEEEEE",
+        "text_primary":    "#0D0D1A",
+        "text_secondary":  "#1A2560",
+        "accent":          "#C8001A",
+        "border":          "#1A2560",
+        "divider":         "#8090C0",
+    },
+    # XXIe siècle (2000+) — épuré, typographie contemporaine
+    "xxi": {
+        "background":      "#FFFFFF",
+        "background_dark": "#F0F0F0",
+        "text_primary":    "#111111",
+        "text_secondary":  "#555555",
+        "accent":          "#0066CC",
+        "border":          "#222222",
+        "divider":         "#AAAAAA",
+    },
 }
+
+def _get_template_for_year(year: int | None, force_template: str | None = None) -> dict[str, str]:
+    """Retourne la palette de couleurs selon l'époque de l'événement. [SPEC-7bis, RF-7bis.1, RF-7bis.4]
+
+    force_template : clé dans TEMPLATES — prioritaire sur la détection automatique.
+    year None ou négatif → medieval.
+    RSS (year absent) → appelé avec year=None → medieval par défaut, mais l'appelant
+    passe force explicitement "xxi" pour les articles RSS [RF-7bis.1].
+    """
+    if force_template and force_template in TEMPLATES:
+        return TEMPLATES[force_template]
+    if year is None or year < 1500:
+        return TEMPLATES["medieval"]
+    if year < 1800:
+        return TEMPLATES["moderne"]
+    if year < 1900:
+        return TEMPLATES["xix"]
+    if year < 1960:
+        return TEMPLATES["xx_first"]
+    if year < 2000:
+        return TEMPLATES["xx_second"]
+    return TEMPLATES["xxi"]
+
 
 _FR_MONTHS = [
     "", "janvier", "février", "mars", "avril", "mai", "juin",
@@ -144,17 +220,17 @@ def _draw_paper_texture(img: Image.Image, intensity: int = 8) -> Image.Image:
     return Image.fromarray(arr)
 
 
-def _draw_decorative_border(draw: ImageDraw.ImageDraw, W: int, H: int) -> None:
+def _draw_decorative_border(draw: ImageDraw.ImageDraw, W: int, H: int, colors: dict) -> None:
     """Rectangle décoratif épaisseur 4px, couleur border. [IMAGE_GENERATION.md]"""
     draw.rectangle(
         [(MARGIN, MARGIN), (W - MARGIN, H - MARGIN)],
-        outline=COLORS["border"],
+        outline=colors["border"],
         width=4,
     )
 
 
 def _draw_masthead(
-    draw: ImageDraw.ImageDraw, W: int, masthead_text: str, fonts: dict
+    draw: ImageDraw.ImageDraw, W: int, masthead_text: str, fonts: dict, colors: dict
 ) -> None:
     """Masthead centré dans la zone y=60–170. [IMG-10, IMG-4]
 
@@ -166,11 +242,11 @@ def _draw_masthead(
     text_h = bbox[3] - bbox[1]
     x = (W - text_w) // 2
     y = 115 - text_h // 2  # Centré dans zone y=60–170 (centre=115)
-    draw.text((x, y), masthead_text, fill=COLORS["accent"], font=font)
+    draw.text((x, y), masthead_text, fill=colors["accent"], font=font)
 
 
 def _draw_date_banner(
-    draw: ImageDraw.ImageDraw, W: int, time_ago: str, date_str: str, fonts: dict
+    draw: ImageDraw.ImageDraw, W: int, time_ago: str, date_str: str, fonts: dict, colors: dict
 ) -> None:
     """Banner date : two lignes centrées dans zone y=180–260. [IMG-11]
 
@@ -186,12 +262,12 @@ def _draw_date_banner(
         bbox = draw.textbbox((0, 0), text, font=font)
         text_w = bbox[2] - bbox[0]
         x = (W - text_w) // 2
-        draw.text((x, y), text, fill=COLORS["text_secondary"], font=font)
+        draw.text((x, y), text, fill=colors["text_secondary"], font=font)
 
 
-def _draw_divider(draw: ImageDraw.ImageDraw, W: int, y: int) -> None:
+def _draw_divider(draw: ImageDraw.ImageDraw, W: int, y: int, colors: dict) -> None:
     """Filet horizontal divider. [IMAGE_GENERATION.md]"""
-    draw.line([(PADDING, y), (W - PADDING, y)], fill=COLORS["divider"], width=1)
+    draw.line([(PADDING, y), (W - PADDING, y)], fill=colors["divider"], width=1)
 
 
 def _draw_thumbnail(
@@ -225,6 +301,7 @@ def _draw_event_text(
     text_y: int,
     max_height: int,
     fonts: dict,
+    colors: dict,
 ) -> None:
     """Rendu du texte principal. Limite 18 lignes max avec tronc. "...". [IMG-2]
 
@@ -256,12 +333,12 @@ def _draw_event_text(
 
     y = text_y
     for line in display_lines:
-        draw.text((PADDING, y), line, fill=COLORS["text_primary"], font=font)
+        draw.text((PADDING, y), line, fill=colors["text_primary"], font=font)
         y += line_height
 
 
 def _draw_footer(
-    draw: ImageDraw.ImageDraw, W: int, H: int, source_text: str, fonts: dict
+    draw: ImageDraw.ImageDraw, W: int, H: int, source_text: str, fonts: dict, colors: dict
 ) -> None:
     """Footer centré à y = H - 60 (adaptatif aux dimensions). [IMG-3]
 
@@ -272,7 +349,7 @@ def _draw_footer(
     text_w = bbox[2] - bbox[0]
     x = (W - text_w) // 2
     y = H - 60  # = 1290 pour H=1350
-    draw.text((x, y), source_text, fill=COLORS["text_secondary"], font=font)
+    draw.text((x, y), source_text, fill=colors["text_secondary"], font=font)
 
 
 # ---------------------------------------------------------------------------
@@ -342,15 +419,23 @@ def _generate_image_inner(
     output_path: Path,
     thumbnail: Image.Image | None = None,
 ) -> Path:
-    """Séquence de rendu Pillow. [IMAGE_GENERATION.md — IMG-8]"""
+    """Séquence de rendu Pillow. [IMAGE_GENERATION.md — IMG-8, SPEC-7bis]"""
     from ancnouv.db.models import RssArticle
     from ancnouv.utils.text_helpers import truncate_for_image
 
     W = config.image.width
     H = config.image.height
 
+    # Sélection du template selon l'époque [SPEC-7bis, RF-7bis.1]
+    # RSS → toujours "xxi" ; Event → déterminé par year
+    if isinstance(source, RssArticle):
+        colors = _get_template_for_year(None, config.image.force_template or "xxi")
+    else:
+        event_year = getattr(source, "year", None)
+        colors = _get_template_for_year(event_year, config.image.force_template)
+
     # 1. Image de fond
-    img = Image.new("RGB", (W, H), color=COLORS["background"])
+    img = Image.new("RGB", (W, H), color=colors["background"])
 
     # 2. Texture papier [IMG-m7] réaffectation obligatoire
     if config.image.paper_texture:
@@ -360,8 +445,8 @@ def _generate_image_inner(
     fonts = _load_fonts()
 
     # 3. Bordure décorative + masthead
-    _draw_decorative_border(draw, W, H)
-    _draw_masthead(draw, W, config.image.masthead_text, fonts)
+    _draw_decorative_border(draw, W, H, colors)
+    _draw_masthead(draw, W, config.image.masthead_text, fonts, colors)
 
     # 4. Banner date — extraction selon le type de source
     if isinstance(source, RssArticle):
@@ -387,24 +472,24 @@ def _generate_image_inner(
         else:
             source_text = config.caption.source_template_fr
 
-    _draw_date_banner(draw, W, time_ago, date_str, fonts)
+    _draw_date_banner(draw, W, time_ago, date_str, fonts, colors)
 
     # 5. Thumbnail + texte événement
     # Layout avec thumbnail : texte d'abord (teaser), puis photo en bas. [IMG-11]
     # Évite le pattern "une ligne + grande photo noire" pour les descriptions courtes.
     if thumbnail is not None:
-        _draw_event_text(draw, W, text, text_y=285, max_height=588, fonts=fonts)
+        _draw_event_text(draw, W, text, text_y=285, max_height=588, fonts=fonts, colors=colors)
         _draw_thumbnail(img, thumbnail, y=920, W=W)
     else:
-        _draw_event_text(draw, W, text, text_y=285, max_height=915, fonts=fonts)
+        _draw_event_text(draw, W, text, text_y=285, max_height=915, fonts=fonts, colors=colors)
 
     # 6. Séparateurs + footer (trois dividers selon la spec [IMAGE_GENERATION.md])
     # date_str est à y=230, police 32px — s'étend jusqu'à ~y=266.
     # Divider à y=275 pour laisser un espacement propre. [IMG-11]
-    _draw_divider(draw, W, y=175)   # après masthead
-    _draw_divider(draw, W, y=275)   # après date banner
-    _draw_divider(draw, W, y=1230)  # avant footer
-    _draw_footer(draw, W, H, source_text, fonts)
+    _draw_divider(draw, W, y=175, colors=colors)   # après masthead
+    _draw_divider(draw, W, y=275, colors=colors)   # après date banner
+    _draw_divider(draw, W, y=1230, colors=colors)  # avant footer
+    _draw_footer(draw, W, H, source_text, fonts, colors)
 
     # 7. Sauvegarde JPEG
     img.save(str(output_path), "JPEG", quality=config.image.jpeg_quality, optimize=True)
