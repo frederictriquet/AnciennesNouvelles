@@ -126,12 +126,17 @@ def _dispatch_inner(args: argparse.Namespace) -> int:
         return 1
 
     if command == "start":
+        import logging
         from ancnouv.db.cli import cmd_db_migrate
         from ancnouv.scheduler import run
         rc = cmd_db_migrate()
         if rc != 0:
-            print("Échec des migrations — démarrage annulé.", file=sys.stderr)
-            return rc
+            logging.getLogger(__name__).warning(
+                "db migrate a échoué (code %d) — démarrage quand même. "
+                "Si l'erreur est 'table already exists', la DB n'est pas suivie par Alembic : "
+                "lancer `alembic stamp <revision>` puis `db migrate`.",
+                rc,
+            )
         return run(config)
 
     if command == "auth":
