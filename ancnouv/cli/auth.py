@@ -179,9 +179,34 @@ async def _cmd_auth_meta_impl(config: Config, session: AsyncSession) -> int:
                     if resp_owned.status_code == 200:
                         pages.extend(resp_owned.json().get("data", []))
 
+        # Tentative 3 : accès direct par ID de Page
         if not pages:
-            print("Aucune Page Facebook administrée trouvée (ni via /me/accounts ni via /me/businesses).", file=sys.stderr)
-            return 1
+            print(
+                "\nImpossible de récupérer la Page automatiquement.\n"
+                "Trouver l'ID sur : facebook.com/<votre-page> → À propos → ID de Page\n"
+                "  ou : facebook.com/<votre-page>/settings → Informations générales",
+                file=sys.stderr,
+            )
+            page_id_input = input("ID de Page Facebook (laisser vide pour annuler) : ").strip()
+            if not page_id_input:
+                print("Annulé.", file=sys.stderr)
+                return 1
+            resp_page = await client.get(
+                f"https://graph.facebook.com/v21.0/{page_id_input}",
+                params={"fields": "id,name,access_token", "access_token": long_token},
+            )
+            if resp_page.status_code != 200:
+                print(f"Erreur accès Page : {resp_page.text}", file=sys.stderr)
+                return 1
+            page_data = resp_page.json()
+            if "access_token" not in page_data:
+                print(
+                    f"Page trouvée ({page_data.get('name')}) mais token inaccessible.\n"
+                    "Le compte Facebook utilisé doit être admin de la Page.",
+                    file=sys.stderr,
+                )
+                return 1
+            pages = [page_data]
 
         # Sélection interactive si plusieurs pages
         if len(pages) > 1:
