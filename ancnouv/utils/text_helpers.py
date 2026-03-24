@@ -14,7 +14,7 @@ def truncate_for_image(text: str, max_chars: int = 500) -> str:
     if len(text) <= max_chars:
         return text
     truncated = text[:max_chars].rsplit(" ", 1)[0]
-    return truncated + "…"
+    return truncated + "..."
 
 
 def clean_text(text: str) -> str:
