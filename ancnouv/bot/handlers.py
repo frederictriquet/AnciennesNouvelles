@@ -188,7 +188,14 @@ async def _publish_approved_post(
             if results.get("instagram"):
                 parts.append(f"Instagram : {results['instagram']}")
             if results.get("facebook"):
-                parts.append("Facebook : ✓")
+                fb_id = results["facebook"]
+                # post_id format : {page_id}_{object_id}
+                if "_" in fb_id:
+                    page_id, obj_id = fb_id.split("_", 1)
+                    fb_url = f"https://www.facebook.com/{page_id}/posts/{obj_id}"
+                else:
+                    fb_url = f"https://www.facebook.com/{fb_id}"
+                parts.append(f"Facebook : {fb_url}")
             msg = "Publié — " + " | ".join(parts) if parts else "✓ Publié avec succès."
             await notify_all(bot, config, msg)
     else:

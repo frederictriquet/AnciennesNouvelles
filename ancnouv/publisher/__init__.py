@@ -94,6 +94,13 @@ async def publish_to_all_platforms(
     post.status = "publishing"
     await session.commit()
 
+    platforms = []
+    if ig_publisher is not None:
+        platforms.append("instagram")
+    if fb_publisher is not None:
+        platforms.append("facebook")
+    logger.info("Publication post %d sur : %s", post.id, ", ".join(platforms) or "aucune plateforme")
+
     # Tâches parallèles — chaque publisher avec sa propre session [IG-4]
     async def ig_task() -> str:
         async with get_session() as ig_session:
@@ -130,15 +137,17 @@ async def publish_to_all_platforms(
         if label == "instagram":
             if isinstance(result, Exception):
                 ig_exc = result
-                logger.error("Échec publication Instagram : %s", result)
+                logger.error("Échec publication Instagram (post %d) : %s", post.id, result)
             else:
                 ig_result = result
+                logger.info("Instagram OK (post %d) : %s", post.id, result)
         elif label == "facebook":
             if isinstance(result, Exception):
                 fb_exc = result
-                logger.error("Échec publication Facebook : %s", result)
+                logger.error("Échec publication Facebook (post %d) : %s", post.id, result)
             else:
                 fb_result = result
+                logger.info("Facebook OK (post %d) : %s", post.id, result)
 
     # Mise à jour atomique : status + erreurs + published_count dans un seul commit [DB-2]
     now_utc = datetime.now(timezone.utc).replace(tzinfo=None)

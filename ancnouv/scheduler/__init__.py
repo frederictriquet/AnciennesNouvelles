@@ -263,6 +263,17 @@ def run(config: Config) -> int:
     Unique appel asyncio.run() de l'application [CLI.md — asyncio.run() unique].
     KeyboardInterrupt → sortie propre (code 0).
     """
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s — %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        stream=__import__("sys").stdout,
+        force=True,
+    )
+    # Réduire le bruit des bibliothèques tierces
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("apscheduler").setLevel(logging.WARNING)
+    logging.getLogger("telegram").setLevel(logging.WARNING)
     try:
         asyncio.run(main_async(config))
         return 0
