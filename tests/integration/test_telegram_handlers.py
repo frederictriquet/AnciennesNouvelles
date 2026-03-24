@@ -1010,3 +1010,204 @@ async def test_publish_approved_post_already_has_url(db_session, db_event, mock_
 
     # Upload ne doit pas être appelé si URL déjà renseignée [TG-F6]
     assert len(upload_calls) == 0
+
+
+# ─── handle_queue_it ─────────────────────────────────────────────────────────────
+
+async def test_handle_queue_it_adds_to_queue(db_session, db_event, mock_config):
+    """Bouton 'Ajouter à la file' → post.status='queued', position affichée. [SPEC-7ter, RF-7ter.1]"""
+    from ancnouv.bot.handlers import handle_queue_it
+
+    post = Post(
+        event_id=db_event.id,
+        caption="Test queue",
+        image_path="/tmp/test.jpg",
+        status="pending_approval",
+        telegram_message_ids="{}",
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    update = _make_update(123456789, callback_data=f"queue:{post.id}")
+    context = _make_context(mock_config)
+
+    await handle_queue_it(update, context)
+
+    await db_session.refresh(post)
+    assert post.status == "queued"
+    assert post.approved_at is not None
+    update.callback_query.edit_message_text.assert_called_once()
+    msg = update.callback_query.edit_message_text.call_args[0][0]
+    assert "position" in msg
+
+
+async def test_handle_queue_it_full_queue(db_session, db_event, mock_config):
+    """File pleine (max_queue_size=2) → post reste pending_approval, message d'erreur. [RF-7ter.5]"""
+    from ancnouv.db.models import Event
+    from ancnouv.db.utils import compute_content_hash
+    from ancnouv.bot.handlers import handle_queue_it
+
+    mock_config.scheduler.max_queue_size = 2
+
+    # Remplir la file
+    for i in range(2):
+        ev = Event(
+            source="wikipedia", source_lang="fr", event_type="event",
+            month=1, day=i + 1, year=1800 + i,
+            description=f"Événement {i}",
+            content_hash=compute_content_hash(f"Événement {i}"),
+            status="available", published_count=0,
+            fetched_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        )
+        db_session.add(ev)
+        await db_session.flush()
+        queued = Post(
+            event_id=ev.id, caption=f"Queued {i}",
+            status="queued", telegram_message_ids="{}",
+        )
+        db_session.add(queued)
+    await db_session.commit()
+
+    post = Post(
+        event_id=db_event.id, caption="Nouveau post",
+        image_path="/tmp/test.jpg", status="pending_approval",
+        telegram_message_ids="{}",
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    update = _make_update(123456789, callback_data=f"queue:{post.id}")
+    context = _make_context(mock_config)
+
+    await handle_queue_it(update, context)
+
+    await db_session.refresh(post)
+    assert post.status == "pending_approval"
+    msg = update.callback_query.edit_message_text.call_args[0][0]
+    assert "pleine" in msg
+
+
+async def test_handle_queue_it_post_not_found(db_session, mock_config):
+    """Post inexistant → message 'n'est plus disponible'. [SPEC-7ter]"""
+    from ancnouv.bot.handlers import handle_queue_it
+
+    update = _make_update(123456789, callback_data="queue:99999")
+    context = _make_context(mock_config)
+
+    await handle_queue_it(update, context)
+
+    update.callback_query.edit_message_text.assert_called_once()
+    msg = update.callback_query.edit_message_text.call_args[0][0]
+    assert "disponible" in msg
+
+
+# ─── cmd_queue ───────────────────────────────────────────────────────────────────
+
+async def test_cmd_queue_empty(db_session, mock_config):
+    """Aucun post en file → réponse 'vide'. [SPEC-7ter, RF-7ter.4]"""
+    from ancnouv.bot.handlers import cmd_queue
+
+    update = _make_update(123456789)
+    context = _make_context(mock_config)
+
+    await cmd_queue(update, context)
+
+    update.message.reply_text.assert_called_once_with("File d'attente vide.")
+
+
+async def test_cmd_queue_shows_posts(db_session, db_event, mock_config):
+    """Posts en file → liste affichée avec positions. [SPEC-7ter, RF-7ter.4]"""
+    from ancnouv.bot.handlers import cmd_queue
+
+    post = Post(
+        event_id=db_event.id,
+        caption="Post en file",
+        image_path="/tmp/test.jpg",
+        status="queued",
+        approved_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        telegram_message_ids="{}",
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    update = _make_update(123456789)
+    context = _make_context(mock_config)
+
+    await cmd_queue(update, context)
+
+    update.message.reply_text.assert_called_once()
+    msg = update.message.reply_text.call_args[0][0]
+    assert str(post.id) in msg
+    assert "1/10" in msg
+
+
+# ─── _retry_single_platform ──────────────────────────────────────────────────────
+
+async def test_retry_single_platform_success(db_session, mock_config, mock_bot):
+    """Retry instagram réussi → instagram_post_id mis à jour. [TG-F16]"""
+    from unittest.mock import MagicMock, patch as mpatch
+
+    from ancnouv.bot.handlers import _retry_single_platform
+
+    post = Post(
+        event_id=None,
+        article_id=1,
+        caption="Caption retry",
+        image_path="/tmp/test.jpg",
+        image_public_url="https://example.com/img.jpg",
+        status="published",
+        telegram_message_ids="{}",
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    fake_cm = MagicMock()
+    fake_cm.__aenter__ = AsyncMock(return_value=db_session)
+    fake_cm.__aexit__ = AsyncMock(return_value=None)
+
+    with mpatch("ancnouv.bot.handlers.get_session", new=MagicMock(return_value=fake_cm)), \
+         mpatch("ancnouv.publisher.instagram.InstagramPublisher.publish",
+                new=AsyncMock(return_value="ig_retry_abc")):
+        await _retry_single_platform(post, "instagram", db_session, mock_bot, mock_config)
+
+    assert post.instagram_post_id == "ig_retry_abc"
+    assert post.instagram_error is None
+
+
+async def test_retry_single_platform_error(db_session, mock_config, mock_bot):
+    """Retry instagram échoué → instagram_error mis à jour, status reste published. [TG-F16]"""
+    from unittest.mock import MagicMock, patch as mpatch
+
+    from ancnouv.bot.handlers import _retry_single_platform
+    from ancnouv.exceptions import PublisherError
+
+    post = Post(
+        event_id=None,
+        article_id=1,
+        caption="Caption retry",
+        image_path="/tmp/test.jpg",
+        image_public_url="https://example.com/img.jpg",
+        status="published",
+        telegram_message_ids="{}",
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    fake_cm = MagicMock()
+    fake_cm.__aenter__ = AsyncMock(return_value=db_session)
+    fake_cm.__aexit__ = AsyncMock(return_value=None)
+
+    with mpatch("ancnouv.bot.handlers.get_session", new=MagicMock(return_value=fake_cm)), \
+         mpatch("ancnouv.publisher.instagram.InstagramPublisher.publish",
+                new=AsyncMock(side_effect=PublisherError("publish failed"))):
+        await _retry_single_platform(post, "instagram", db_session, mock_bot, mock_config)
+
+    assert post.instagram_error is not None
+    assert "publish failed" in post.instagram_error
+    assert post.instagram_post_id is None
+    assert post.status == "published"

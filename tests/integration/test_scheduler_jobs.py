@@ -873,3 +873,116 @@ async def test_job_fetch_wiki_basic(db_session, mock_config):
     ):
         from ancnouv.scheduler.jobs import job_fetch_wiki
         await job_fetch_wiki()
+
+
+# ─── job_publish_queued (JOB-7) ──────────────────────────────────────────────────
+
+async def test_job_publish_queued_no_posts(db_session, mock_config):
+    """Aucun post queued → _job_publish_queued_inner retourne immédiatement. [SPEC-7ter, JOB-7]"""
+    from ancnouv.scheduler.context import set_config
+
+    set_config(mock_config)
+    mock_bot_app = MagicMock()
+    mock_bot_app.bot = AsyncMock()
+
+    publish_called = []
+
+    with (
+        patch("ancnouv.scheduler.context.get_config", return_value=mock_config),
+        patch("ancnouv.scheduler.context.get_bot_app", return_value=mock_bot_app),
+        patch("ancnouv.scheduler.context.get_engine", return_value=MagicMock()),
+        patch("ancnouv.publisher.publish_to_all_platforms", side_effect=lambda *a, **k: publish_called.append(True)),
+    ):
+        from ancnouv.scheduler.jobs import _job_publish_queued_inner
+        await _job_publish_queued_inner()
+
+    assert len(publish_called) == 0
+
+
+async def test_job_publish_queued_publishes_post(db_session, db_event, mock_config):
+    """Post queued éligible → publié, status='published'. [SPEC-7ter, RF-7ter.3]"""
+    from ancnouv.scheduler.context import set_config, set_engine
+
+    set_config(mock_config)
+
+    post = Post(
+        event_id=db_event.id,
+        caption="Post en file",
+        image_path="/tmp/queued.jpg",
+        image_public_url="https://img.example.com/q.jpg",
+        status="queued",
+        approved_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        telegram_message_ids="{}",
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    mock_bot_app = MagicMock()
+    mock_bot_app.bot = AsyncMock()
+    notified = []
+
+    async def mock_publish(p, url, ig, fb, session, **kwargs):
+        p.status = "published"
+        p.published_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        await session.commit()
+        return {"instagram": None, "facebook": None}
+
+    async def capture_notify(bot, cfg, msg):
+        notified.append(msg)
+
+    with (
+        patch("ancnouv.scheduler.context.get_config", return_value=mock_config),
+        patch("ancnouv.scheduler.context.get_bot_app", return_value=mock_bot_app),
+        patch("ancnouv.scheduler.context.get_engine"),
+        patch("ancnouv.scheduler.jobs.check_and_increment_daily_count", new=AsyncMock(return_value=True)),
+        patch("ancnouv.publisher.publish_to_all_platforms", side_effect=mock_publish),
+        patch("ancnouv.bot.notifications.notify_all", side_effect=capture_notify),
+    ):
+        from ancnouv.scheduler.jobs import _job_publish_queued_inner
+        await _job_publish_queued_inner()
+
+    await db_session.refresh(post)
+    assert post.status == "published"
+    assert any("publié" in m for m in notified)
+
+
+async def test_job_publish_queued_daily_limit(db_session, db_event, mock_config):
+    """Limite journalière atteinte → publication stoppée, notification envoyée. [RF-7ter.3]"""
+    from ancnouv.scheduler.context import set_config
+
+    set_config(mock_config)
+
+    post = Post(
+        event_id=db_event.id,
+        caption="Post bloqué par limite",
+        image_path="/tmp/limit.jpg",
+        image_public_url="https://img.example.com/l.jpg",
+        status="queued",
+        approved_at=datetime.now(timezone.utc).replace(tzinfo=None),
+        telegram_message_ids="{}",
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    mock_bot_app = MagicMock()
+    mock_bot_app.bot = AsyncMock()
+    notified = []
+
+    async def capture_notify(bot, cfg, msg):
+        notified.append(msg)
+
+    with (
+        patch("ancnouv.scheduler.context.get_config", return_value=mock_config),
+        patch("ancnouv.scheduler.context.get_bot_app", return_value=mock_bot_app),
+        patch("ancnouv.scheduler.context.get_engine"),
+        patch("ancnouv.scheduler.jobs.check_and_increment_daily_count", new=AsyncMock(return_value=False)),
+        patch("ancnouv.bot.notifications.notify_all", side_effect=capture_notify),
+    ):
+        from ancnouv.scheduler.jobs import _job_publish_queued_inner
+        await _job_publish_queued_inner()
+
+    await db_session.refresh(post)
+    assert post.status == "queued"
+    assert any("limite" in m.lower() for m in notified)

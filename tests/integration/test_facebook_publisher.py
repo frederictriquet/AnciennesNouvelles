@@ -109,3 +109,50 @@ async def test_facebook_no_page_token_raises(db_session, mock_config):
 
     with pytest.raises((TokenExpiredError, PublisherError)):
         await publisher.publish(post, "https://example.com/img.jpg", "Caption", db_session)
+
+
+async def test_facebook_publish_story_success(db_session, mock_config, httpx_mock):
+    """publish_story → retourne story_post_id. [SPEC-7, SPEC-7.3.4, IG-F5B]"""
+    from ancnouv.publisher.facebook import FacebookPublisher
+    from ancnouv.publisher.token_manager import TokenManager
+
+    await seed_page_token(db_session)
+
+    httpx_mock.add_response(
+        url=f"https://graph.facebook.com/v21.0/{mock_config.facebook.page_id}/photo_stories",
+        json={"post_id": "story_fb_123"},
+    )
+
+    token_mgr = TokenManager(mock_config.meta_app_id, mock_config.meta_app_secret)
+    publisher = FacebookPublisher(
+        page_id=mock_config.facebook.page_id,
+        token_manager=token_mgr,
+        api_version="v21.0",
+    )
+
+    result = await publisher.publish_story("https://example.com/story.jpg", db_session)
+    assert result == "story_fb_123"
+
+
+async def test_facebook_publish_story_error(db_session, mock_config, httpx_mock):
+    """publish_story avec erreur Meta → PublisherError. [SPEC-7, IG-F5B]"""
+    from ancnouv.exceptions import PublisherError
+    from ancnouv.publisher.facebook import FacebookPublisher
+    from ancnouv.publisher.token_manager import TokenManager
+
+    await seed_page_token(db_session)
+
+    httpx_mock.add_response(
+        url=f"https://graph.facebook.com/v21.0/{mock_config.facebook.page_id}/photo_stories",
+        json={"error": {"code": 500, "message": "Internal error."}},
+    )
+
+    token_mgr = TokenManager(mock_config.meta_app_id, mock_config.meta_app_secret)
+    publisher = FacebookPublisher(
+        page_id=mock_config.facebook.page_id,
+        token_manager=token_mgr,
+        api_version="v21.0",
+    )
+
+    with pytest.raises(PublisherError):
+        await publisher.publish_story("https://example.com/story.jpg", db_session)

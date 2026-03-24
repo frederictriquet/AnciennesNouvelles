@@ -173,6 +173,7 @@ def mock_config():
     config.scheduler.approval_timeout_hours = 48
     config.scheduler.auto_publish = False
     config.scheduler.timezone = "Europe/Paris"
+    config.scheduler.max_queue_size = 10
     config.content.rss.enabled = False
     config.content.rss.min_delay_days = 90
     config.content.rss.max_age_days = 180
