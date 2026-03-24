@@ -2,6 +2,7 @@
 data/
 logs/
 scheduler.db
+IDs.txt
 
 # Secrets
 .env

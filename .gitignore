@@ -1,6 +1,7 @@
 # Secrets
 .env
 config.yml
+IDs.txt
 
 # Données runtime
 data/
