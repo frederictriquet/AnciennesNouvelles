@@ -402,9 +402,11 @@ def _generate_image_inner(
     _draw_date_banner(draw, W, time_ago, date_str, fonts)
 
     # 5. Thumbnail + texte événement
+    # Layout avec thumbnail : texte d'abord (teaser), puis photo en bas. [IMG-11]
+    # Évite le pattern "une ligne + grande photo noire" pour les descriptions courtes.
     if thumbnail is not None:
-        _draw_thumbnail(img, thumbnail, y=280, W=W)
-        _draw_event_text(draw, W, text, text_y=620, max_height=580, fonts=fonts)
+        _draw_event_text(draw, W, text, text_y=285, max_height=588, fonts=fonts)
+        _draw_thumbnail(img, thumbnail, y=920, W=W)
     else:
         _draw_event_text(draw, W, text, text_y=285, max_height=915, fonts=fonts)
 

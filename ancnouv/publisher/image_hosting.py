@@ -42,17 +42,20 @@ async def upload_to_remote(image_path: Path, config: "Config") -> str:
     headers = {"Authorization": f"Bearer {config.image_server_token}"}
     delays = [1, 2, 4]
 
+    # Lecture complète en mémoire avant l'upload — évite le décalage de position
+    # de fichier (Content-Length calculé sur seek, données lues en async) [IH-1]
+    file_bytes = image_path.read_bytes()
+
     last_exc: Exception | None = None
     for attempt in range(4):
         try:
             async with httpx.AsyncClient() as client:
-                with image_path.open("rb") as f:
-                    response = await client.post(
-                        config.image_hosting.remote_upload_url,
-                        headers=headers,
-                        files={"file": (image_path.name, f, "image/jpeg")},
-                        timeout=60,
-                    )
+                response = await client.post(
+                    config.image_hosting.remote_upload_url,
+                    headers=headers,
+                    files={"file": (image_path.name, file_bytes, "image/jpeg")},
+                    timeout=60,
+                )
 
             # Erreurs 4xx : non-retriables
             if 400 <= response.status_code < 500:
