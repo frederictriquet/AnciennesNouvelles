@@ -161,9 +161,10 @@ async def _cmd_auth_meta_impl(config: Config, session: AsyncSession) -> int:
         if resp.status_code != 200:
             print(f"Erreur récupération pages : {resp.text}", file=sys.stderr)
             return 1
-        pages = resp.json().get("data", [])
+        pages_resp = resp.json()
+        pages = pages_resp.get("data", [])
         if not pages:
-            print("Aucune Page Facebook administrée trouvée.", file=sys.stderr)
+            print(f"Aucune Page Facebook administrée trouvée. Réponse brute : {pages_resp}", file=sys.stderr)
             return 1
 
         # Sélection interactive si plusieurs pages
