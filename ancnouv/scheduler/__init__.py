@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import signal
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -267,7 +268,7 @@ def run(config: Config) -> int:
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s — %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
-        stream=__import__("sys").stdout,
+        stream=sys.stdout,
         force=True,
     )
     # Réduire le bruit des bibliothèques tierces

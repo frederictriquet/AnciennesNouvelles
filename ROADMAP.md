@@ -575,3 +575,14 @@
 - [ ] Carrousel Instagram (multi-images)
 - [ ] Archives BnF / Gallica (source historique alternative)
 
+---
+
+## Phase 11 — Contenus thématiques (non planifié)
+
+### Post quotidien anniversaire de naissance
+
+- [ ] Activer `births` dans `wikipedia_event_types` par défaut (ou en config recommandée)
+- [ ] Job dédié ou critère de sélection prioritaire pour garantir un post "naissance" par jour
+- [ ] Mise en page spécifique : mention "Né(e) il y a X ans" dans le banner date
+- [ ] Option config `content.daily_birth_post: true` pour activer le mode post dédié (en plus du post événement principal)
+

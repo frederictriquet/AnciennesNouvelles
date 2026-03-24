@@ -94,23 +94,14 @@ async def publish_to_all_platforms(
     post.status = "publishing"
     await session.commit()
 
-    platforms = []
-    if ig_publisher is not None:
-        platforms.append("instagram")
-    if fb_publisher is not None:
-        platforms.append("facebook")
-    logger.info("Publication post %d sur : %s", post.id, ", ".join(platforms) or "aucune plateforme")
-
     # Tâches parallèles — chaque publisher avec sa propre session [IG-4]
     async def ig_task() -> str:
         async with get_session() as ig_session:
-            assert ig_publisher is not None
-            return await ig_publisher.publish(post, image_url, caption_to_use, ig_session)
+            return await ig_publisher.publish(post, image_url, caption_to_use, ig_session)  # type: ignore[union-attr]
 
     async def fb_task() -> str:
         async with get_session() as fb_session:
-            assert fb_publisher is not None
-            return await fb_publisher.publish(post, image_url, caption_to_use, fb_session)
+            return await fb_publisher.publish(post, image_url, caption_to_use, fb_session)  # type: ignore[union-attr]
 
     tasks = []
     task_labels = []
@@ -120,6 +111,8 @@ async def publish_to_all_platforms(
     if fb_publisher is not None:
         tasks.append(fb_task())
         task_labels.append("facebook")
+
+    logger.info("Publication post %d sur : %s", post.id, ", ".join(task_labels) or "aucune plateforme")
 
     results: list = []
     if tasks:

@@ -10,7 +10,10 @@ def truncate(text: str, max_chars: int, suffix: str = "...") -> str:
 
 
 def truncate_for_image(text: str, max_chars: int = 500) -> str:
-    """Pré-filtre à 500 chars avant génération d'image. Tronque au dernier mot entier. [IMAGE_GENERATION.md]"""
+    """Tronque au dernier mot entier avant max_chars. [IMAGE_GENERATION.md]
+
+    Défaut 500 chars pour la DB ; passer max_chars=1200 pour la génération d'image.
+    """
     if len(text) <= max_chars:
         return text
     truncated = text[:max_chars].rsplit(" ", 1)[0]

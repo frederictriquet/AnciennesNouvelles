@@ -208,7 +208,7 @@ class InstagramPublisher:
             data = response.json()
             return data.get("permalink")
         except Exception as exc:
-            logger.warning("Impossible de récupérer le permalink IG %s : %s", media_id, exc)
+            logger.error("Impossible de récupérer le permalink IG %s : %s", media_id, exc)
             return None
 
     async def _get_container_status(
