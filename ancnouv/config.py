@@ -75,7 +75,7 @@ class ImageConfig(BaseSettings):
     paper_texture: bool = True
     paper_texture_intensity: int = 8
     masthead_text: str = "ANCIENNES NOUVELLES"
-    # v2 : force_template: str | None = None
+    force_template: str | None = None  # [SPEC-7bis, RF-7bis.4]
 
 
 class CaptionConfig(BaseSettings):

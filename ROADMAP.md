@@ -535,11 +535,12 @@
 
 ### Templates par époque [SPEC-7bis]
 
-- [ ] 6 époques avec palettes, polices, dispositions [SPEC-7bis] [IMG-1]
-- [ ] `_get_template_for_year(year) -> TemplateConfig`
-- [ ] Mode B → toujours style "XXIe siècle" [SPEC-7bis.1]
-- [ ] `image.force_template` dans config [SPEC-7bis.4]
-- [ ] Même système feed et Story [SPEC-7bis.3]
+- [x] 6 époques avec palettes de couleurs [SPEC-7bis] [IMG-1]
+- [x] `_get_template_for_year(year, force_template)` [RF-7bis.1]
+- [x] Mode B → toujours style "XXIe siècle" [RF-7bis.1]
+- [x] `image.force_template` dans config [RF-7bis.4]
+- [ ] Polices et dispositions spécifiques par époque (v3) [RF-7bis.2]
+- [ ] Même système feed et Story [RF-7bis.3]
 
 ### File d'attente et publication planifiée [SPEC-7ter]
 
