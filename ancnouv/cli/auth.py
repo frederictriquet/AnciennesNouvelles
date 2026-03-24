@@ -226,6 +226,26 @@ async def _cmd_auth_meta_impl(config: Config, session: AsyncSession) -> int:
         page_id = page["id"]
         page_name = page["name"]
 
+        # 5. Instagram Business Account ID depuis la Page [IG-3]
+        resp_ig = await client.get(
+            f"https://graph.facebook.com/v21.0/{page_id}",
+            params={
+                "fields": "instagram_business_account{id,username}",
+                "access_token": page_token,
+            },
+        )
+        ig_biz = resp_ig.json().get("instagram_business_account") if resp_ig.status_code == 200 else None
+        if ig_biz:
+            ig_user_id = ig_biz["id"]
+            ig_username = ig_biz.get("username", "")
+        else:
+            print(
+                "⚠ Impossible de récupérer l'Instagram Business Account depuis la Page.\n"
+                "  Vérifier que le compte Instagram est bien connecté à la Page Facebook\n"
+                "  dans : Paramètres Instagram → Compte → Page liée.",
+                file=sys.stderr,
+            )
+
     # 5. Stockage en DB (UPSERT sur token_kind)
     from sqlalchemy import text as sa_text
     await session.execute(
@@ -258,9 +278,12 @@ async def _cmd_auth_meta_impl(config: Config, session: AsyncSession) -> int:
     await session.commit()
 
     print(f"\n✓ Tokens stockés en DB.")
-    print(f"  Compte IG : {ig_username} (ID: {ig_user_id})")
+    print(f"  Compte IG : @{ig_username} (ID: {ig_user_id})")
     print(f"  Page FB   : {page_name} (ID: {page_id})")
     print(f"  Expiration : {expires_at.strftime('%d/%m/%Y %H:%M UTC')}")
+    print(f"\nRenseigner config.yml :")
+    print(f"  instagram.user_id: \"{ig_user_id}\"")
+    print(f"  facebook.page_id: \"{page_id}\"")
     return 0
 
 
