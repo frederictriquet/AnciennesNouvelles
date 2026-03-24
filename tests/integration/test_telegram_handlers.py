@@ -957,7 +957,7 @@ async def test_publish_approved_post_success(db_session, db_event, mock_config):
 
     bot = AsyncMock()
 
-    async def mock_publish(p, url, ig_pub, fb_pub, session):
+    async def mock_publish(p, url, ig_pub, fb_pub, session, **kwargs):
         p.status = "published"
         return {"instagram": "IG123", "facebook": None}
 
@@ -997,7 +997,7 @@ async def test_publish_approved_post_already_has_url(db_session, db_event, mock_
     bot = AsyncMock()
     upload_calls = []
 
-    async def mock_publish(p, url, ig_pub, fb_pub, session):
+    async def mock_publish(p, url, ig_pub, fb_pub, session, **kwargs):
         p.status = "published"
         return {"instagram": None, "facebook": None}
 

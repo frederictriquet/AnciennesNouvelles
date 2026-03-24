@@ -61,6 +61,7 @@ async def publish_to_all_platforms(
     session: AsyncSession,
     caption: str | None = None,
     max_daily_posts: int = 25,
+    story_image_url: str | None = None,
 ) -> dict:
     """Publie sur Instagram et/ou Facebook en parallèle [IG-4, SPEC-3.4.4].
 
@@ -198,4 +199,56 @@ async def publish_to_all_platforms(
     post.updated_at = now_utc
     await session.commit()
 
+    # Publication des Stories si image disponible [SPEC-7, RF-7.3.3, RF-7.3.6]
+    # Non-bloquante : un échec Story ne change pas le statut du post feed.
+    if story_image_url and (ig_publisher is not None or fb_publisher is not None):
+        await _publish_stories(post, story_image_url, ig_publisher, fb_publisher, session)
+
     return {"instagram": ig_result, "facebook": fb_result}
+
+
+async def _publish_stories(
+    post: "Post",
+    story_image_url: str,
+    ig_publisher: "InstagramPublisher | None",
+    fb_publisher: "FacebookPublisher | None",
+    session: AsyncSession,
+) -> None:
+    """Publie les Stories IG + FB en parallèle après le post feed. [SPEC-7, RF-7.3.3, RF-7.3.6]
+
+    Erreur non-bloquante : loggée mais ne modifie pas post.status [RF-7.3.6].
+    story_post_id persisté sur succès.
+    """
+    from ancnouv.db.session import get_session
+
+    async def ig_story_task() -> str:
+        async with get_session() as s:
+            return await ig_publisher.publish_story(story_image_url, s)  # type: ignore[union-attr]
+
+    async def fb_story_task() -> str:
+        async with get_session() as s:
+            return await fb_publisher.publish_story(story_image_url, s)  # type: ignore[union-attr]
+
+    story_tasks = []
+    story_labels = []
+    if ig_publisher is not None:
+        story_tasks.append(ig_story_task())
+        story_labels.append("ig")
+    if fb_publisher is not None:
+        story_tasks.append(fb_story_task())
+        story_labels.append("fb")
+
+    results = list(await asyncio.gather(*story_tasks, return_exceptions=True))
+
+    story_ids = []
+    for label, result in zip(story_labels, results):
+        if isinstance(result, Exception):
+            logger.error("Échec Story %s (post %d) : %s", label, post.id, result)
+        else:
+            story_ids.append(result)
+            logger.info("Story %s OK (post %d) : %s", label, post.id, result)
+
+    if story_ids:
+        # Stocker le premier story_post_id disponible (IG prioritaire)
+        post.story_post_id = story_ids[0]
+        await session.commit()

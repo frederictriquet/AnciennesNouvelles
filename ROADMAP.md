@@ -522,16 +522,17 @@
 
 ### Stories Instagram et Facebook [SPEC-7]
 
-- [ ] Template Pillow 1080×1920 px (ratio 9:16) [SPEC-7.1]
-- [ ] Zones de sécurité : ~250px haut, ~400px bas [SPEC-7.4]
-- [ ] Texte condensé — définir longueur max spécifique [SPEC-7.4]
-- [ ] `stories.enabled` dans config [SPEC-7.3.5]
-- [ ] Publication Story immédiatement après post feed (même approbation) [SPEC-7.3.3]
-- [ ] Instagram Stories + Facebook Stories (`media_type=STORIES`) [SPEC-7.3.4, IG-F5]
+- [x] Template Pillow 1080×1920 px (ratio 9:16) [SPEC-7.1]
+- [x] Zones de sécurité : 270px haut, 400px bas [SPEC-7.4]
+- [x] Texte condensé — `stories.max_text_chars` (défaut 400) [SPEC-7.4]
+- [x] `stories.enabled` dans config [SPEC-7.3.5]
+- [x] Publication Story immédiatement après post feed (même approbation) [SPEC-7.3.3]
+- [x] Instagram Stories (`media_type=STORIES`) [SPEC-7.3.4, IG-F5]
+- [x] Facebook Stories (`/{page-id}/photo_stories`) [SPEC-7.3.4]
+- [x] Échec Story non bloquant pour le post feed [SPEC-7.3.6]
+- [x] Colonnes `story_image_path`, `story_post_id` dans `posts` (migration 0003) [SPEC-7.4]
+- [x] `data/images/{uuid}_story.jpg`, même politique de rétention [SPEC-7.3.7]
 - [ ] Documenter endpoint `media_type=STORIES` dans INSTAGRAM_API.md [IG-F5]
-- [ ] Échec Story non bloquant pour le post feed [SPEC-7.3.6]
-- [ ] Colonne `story_post_id` dans `posts` (migration Alembic) [SPEC-7.4]
-- [ ] `data/images/{uuid}_story.jpg`, même politique de rétention [SPEC-7.3.7]
 
 ### Templates par époque [SPEC-7bis]
 
@@ -539,8 +540,8 @@
 - [x] `_get_template_for_year(year, force_template)` [RF-7bis.1]
 - [x] Mode B → toujours style "XXIe siècle" [RF-7bis.1]
 - [x] `image.force_template` dans config [RF-7bis.4]
+- [x] Même système feed et Story [RF-7bis.3]
 - [ ] Polices et dispositions spécifiques par époque (v3) [RF-7bis.2]
-- [ ] Même système feed et Story [RF-7bis.3]
 
 ### File d'attente et publication planifiée [SPEC-7ter]
 
