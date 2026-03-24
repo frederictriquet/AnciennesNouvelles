@@ -45,6 +45,7 @@ def setup_handlers(app: Application) -> None:
         cmd_help,
         cmd_pause,
         cmd_pending,
+        cmd_queue,
         cmd_resume,
         cmd_retry,
         cmd_retry_fb,
@@ -54,6 +55,7 @@ def setup_handlers(app: Application) -> None:
         cmd_status,
         edit_conv_handler,
         handle_approve,
+        handle_queue_it,
         handle_reject,
         handle_skip,
     )
@@ -65,6 +67,7 @@ def setup_handlers(app: Application) -> None:
     app.add_handler(CallbackQueryHandler(handle_approve, pattern=r"^approve:\d+$"))
     app.add_handler(CallbackQueryHandler(handle_reject, pattern=r"^reject:\d+$"))
     app.add_handler(CallbackQueryHandler(handle_skip, pattern=r"^skip:\d+$"))
+    app.add_handler(CallbackQueryHandler(handle_queue_it, pattern=r"^queue:\d+$"))
 
     # 3. Commandes [TELEGRAM_BOT.md — Noms commandes TC-12 : underscores, pas tirets]
     app.add_handler(CommandHandler("start", cmd_start))
@@ -72,6 +75,7 @@ def setup_handlers(app: Application) -> None:
     app.add_handler(CommandHandler("status", cmd_status))
     app.add_handler(CommandHandler("stats", cmd_stats))
     app.add_handler(CommandHandler("pending", cmd_pending))
+    app.add_handler(CommandHandler("queue", cmd_queue))
     app.add_handler(CommandHandler("pause", cmd_pause))
     app.add_handler(CommandHandler("resume", cmd_resume))
     app.add_handler(CommandHandler("force", cmd_force))

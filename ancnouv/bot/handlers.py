@@ -880,6 +880,131 @@ async def handle_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await send_approval_request(new_post, context.bot, new_session, config)
 
 
+@authorized_only
+async def handle_queue_it(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Ajoute un post à la file d'attente. [SPEC-7ter, RF-7ter.1, RF-7ter.2, RF-7ter.5]"""
+    query = update.callback_query
+    await query.answer()
+
+    post_id = int(query.data.split(":")[1])
+    config: Config = context.bot_data["config"]
+
+    async with get_session() as session:
+        post = await session.get(Post, post_id)
+        if post is None or post.status != "pending_approval":
+            try:
+                await query.edit_message_text("Ce post n'est plus disponible.")
+            except Exception:
+                pass
+            return
+
+        # Guard taille max de la file [RF-7ter.5]
+        queue_count_result = await session.execute(
+            text("SELECT COUNT(*) FROM posts WHERE status = 'queued'")
+        )
+        queue_count = queue_count_result.scalar() or 0
+        if queue_count >= config.scheduler.max_queue_size:
+            try:
+                await query.edit_message_text(
+                    f"File d'attente pleine ({queue_count}/{config.scheduler.max_queue_size}). "
+                    "Attendez la publication d'un post avant d'en ajouter un nouveau."
+                )
+            except Exception:
+                pass
+            return
+
+        # Verrou optimiste [TG-F5]
+        upd = await session.execute(
+            text(
+                "UPDATE posts SET "
+                "  status = 'queued', "
+                "  approved_at = CURRENT_TIMESTAMP, "
+                "  updated_at = CURRENT_TIMESTAMP "
+                "WHERE id = :id AND status = 'pending_approval'"
+            ),
+            {"id": post_id},
+        )
+        if upd.rowcount == 0:
+            return
+
+        await session.refresh(post)
+        await session.commit()
+
+        # Position dans la file (parmi les posts queued triés par approved_at)
+        pos_result = await session.execute(
+            text(
+                "SELECT COUNT(*) FROM posts WHERE status = 'queued' "
+                "AND approved_at <= :approved_at"
+            ),
+            {"approved_at": post.approved_at},
+        )
+        position = pos_result.scalar() or 1
+
+    # Retrait boutons chez tous les admins [TG-F10]
+    try:
+        msg_ids: dict = json.loads(post.telegram_message_ids or "{}")
+    except (json.JSONDecodeError, TypeError):
+        msg_ids = {}
+
+    for uid, mid in msg_ids.items():
+        if mid is not None:
+            try:
+                await context.bot.edit_message_reply_markup(
+                    chat_id=int(uid),
+                    message_id=mid,
+                    reply_markup=None,
+                )
+            except Exception:
+                pass
+
+    try:
+        await query.edit_message_text(
+            f"Ajouté à la file d'attente (position {position})."
+        )
+    except Exception:
+        pass
+
+
+@authorized_only
+async def cmd_queue(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Affiche la file d'attente avec heures estimées. [SPEC-7ter, RF-7ter.4]"""
+    from zoneinfo import ZoneInfo
+
+    config: Config = context.bot_data["config"]
+
+    async with get_session() as session:
+        result = await session.execute(
+            text(
+                "SELECT id, caption, approved_at, scheduled_for "
+                "FROM posts WHERE status = 'queued' "
+                "ORDER BY scheduled_for ASC NULLS LAST, approved_at ASC"
+            )
+        )
+        rows = result.fetchall()
+
+    if not rows:
+        await update.message.reply_text("File d'attente vide.")
+        return
+
+    tz = ZoneInfo(config.scheduler.timezone)
+    lines = [f"File d'attente ({len(rows)}/{config.scheduler.max_queue_size}) :"]
+    for i, row in enumerate(rows, 1):
+        post_id, caption, approved_at_raw, scheduled_for_raw = row
+        extract = (caption or "")[:40]
+        if scheduled_for_raw:
+            try:
+                sf = datetime.fromisoformat(str(scheduled_for_raw))
+                sf_local = sf.replace(tzinfo=timezone.utc).astimezone(tz)
+                time_str = f"planifié {sf_local.strftime('%d/%m à %Hh%M')}"
+            except Exception:
+                time_str = "planifié"
+        else:
+            time_str = f"position {i}"
+        lines.append(f'• #{post_id} — {time_str} — "{extract}..."')
+
+    await update.message.reply_text("\n".join(lines))
+
+
 # ---------------------------------------------------------------------------
 # Flux d'édition de légende (ConversationHandler) [TELEGRAM_BOT.md]
 # ---------------------------------------------------------------------------

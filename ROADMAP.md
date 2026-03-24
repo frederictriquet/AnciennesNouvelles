@@ -532,7 +532,7 @@
 - [x] Échec Story non bloquant pour le post feed [SPEC-7.3.6]
 - [x] Colonnes `story_image_path`, `story_post_id` dans `posts` (migration 0003) [SPEC-7.4]
 - [x] `data/images/{uuid}_story.jpg`, même politique de rétention [SPEC-7.3.7]
-- [ ] Documenter endpoint `media_type=STORIES` dans INSTAGRAM_API.md [IG-F5]
+- [x] Documenter endpoint `media_type=STORIES` dans INSTAGRAM_API.md [IG-F5]
 
 ### Templates par époque [SPEC-7bis]
 
@@ -545,19 +545,79 @@
 
 ### File d'attente et publication planifiée [SPEC-7ter]
 
-- [ ] Statut `queued` opérationnel — colonnes `scheduled_for`, `queued_at` dans `posts` [SPEC-7ter.1]
-- [ ] Nouveaux boutons : **Publier maintenant** / **Ajouter à la file** / **Planifier à [heure]** [SPEC-7ter.2]
-- [ ] Commande `/queue` : file + heures estimées [SPEC-7ter.4]
-- [ ] `scheduler.max_queue_size` configurable (défaut 10) [SPEC-7ter.5]
-- [ ] Ordre : `scheduled_for ASC NULLS LAST, approved_at ASC` [SPEC-7ter.6]
-- [ ] Migration Alembic : `scheduled_for DATETIME` dans `posts`
-- [ ] **JOB-7** activé [SPEC-7ter.3]
-- [ ] `/retry` opérationnel sur posts `queued` [TRANSVERSAL-2, TG-F1, TG-F3]
-- [ ] `recover_pending_posts` traite les posts `queued` [SCHEDULER.md]
+- [x] Statut `queued` opérationnel — colonne `scheduled_for` dans `posts` [SPEC-7ter.1]
+- [x] Migration Alembic 0004 : `scheduled_for DATETIME` dans `posts`
+- [x] Nouveaux boutons : **Publier maintenant** / **Ajouter à la file** [SPEC-7ter.2]
+- [x] Commande `/queue` : file + heures estimées [SPEC-7ter.4]
+- [x] `scheduler.max_queue_size` configurable (défaut 10) [SPEC-7ter.5]
+- [x] Ordre : `scheduled_for ASC NULLS LAST, approved_at ASC` [SPEC-7ter.6]
+- [x] **JOB-7** activé (même cron que JOB-3, MemoryJobStore) [SPEC-7ter.3]
+- [x] `recover_pending_posts` : posts `queued` repris par JOB-7 au prochain cron (v2) [SCHEDULER.md]
+- [x] `/retry` opérationnel sur posts `queued` [TRANSVERSAL-2] — obsolète en v2 : JOB-7 publie automatiquement, échecs → `error` → `/retry` les prend
+- [ ] **Planifier à [heure]** (`scheduled_for` fixe via Telegram) [RF-7ter.2] — v3
 
 ---
 
-## Phase 10 — v3+ (non planifié) [SPEC-8, SPEC-9]
+## Phase 10 — Dashboard de configuration
+
+> Interface web légère pour configurer ancnouv sans éditer les fichiers manuellement.
+> Conteneur séparé (`ancnouv-dashboard`), FastAPI + Jinja2 + htmx, derrière nginx (HTTP Basic Auth).
+
+### Phase 10.1 — Table `config_overrides` et persistance (ancnouv)
+
+- [ ] Migration Alembic : table `config_overrides` (`key TEXT PK`, `value TEXT`, `value_type TEXT`, `updated_at`)
+- [ ] `ancnouv/db/config_store.py` : `get_all_overrides()`, `get_override()`, `set_override()`, `delete_override()`
+- [ ] `value_type` : `'str' | 'int' | 'float' | 'bool' | 'list' | 'dict'` (JSON-encodé)
+- [ ] Tests unitaires `config_store`
+
+### Phase 10.2 — Config overlay dans ancnouv
+
+- [ ] `ancnouv/config_loader.py` : `get_effective_config()` avec cache TTL 30s
+  - [ ] Charge YAML via `Config` (base), puis applique les overrides DB (`apply_dot_overrides`)
+  - [ ] `invalidate_config_cache()` appelé après écriture dashboard (via `scheduler_state` flag)
+- [ ] `apply_dot_overrides(base_dict, overrides_flat)` : merge par dot-path
+- [ ] Jobs APScheduler migrent de `get_config()` vers `get_effective_config()`
+- [ ] Flag `config_restart_required` dans `scheduler_state` si `scheduler.generation_cron` modifié
+- [ ] Tests unitaires overlay
+
+### Phase 10.3 — Service dashboard
+
+- [ ] Structure `dashboard/` dans le repo
+  - [ ] `Dockerfile` (python:3.12-slim, uvicorn, port 8766)
+  - [ ] `requirements.txt` : fastapi, uvicorn, jinja2, aiosqlite, sqlalchemy, pydantic
+  - [ ] `main.py`, `db.py`, `config_meta.py` (définitions des settings exposés)
+  - [ ] `routers/overview.py`, `routers/config.py`, `routers/posts.py`
+  - [ ] `templates/` : `base.html`, `overview.html`, `config.html`, `posts.html`
+- [ ] **Vue d'ensemble** (`GET /`) : état bot (paused/running), daily count, derniers posts, alertes token
+- [ ] **Éditeur config** (`GET /config`) : sections accordéon, widgets adaptés au type, badge "override" vs "défaut"
+  - [ ] `POST /config/set` (htmx) : écriture `config_overrides`, validation inline, retour fragment
+  - [ ] `POST /config/reset/{key}` (htmx) : suppression override, retour valeur défaut
+  - [ ] Bandeau "redémarrage requis" si `config_restart_required` présent
+- [ ] **Posts récents** (`GET /posts`) : liste avec statuts
+- [ ] `GET /health` : healthcheck 200 OK
+- [ ] Settings exposés :
+  - [ ] `scheduler` : `generation_cron`, `max_pending_posts`, `approval_timeout_hours`, `auto_publish`
+  - [ ] `content` : `prefetch_days`, `wikipedia_event_types`, `wikipedia_min_events`, `deduplication_policy`, `deduplication_window_days`, `image_retention_days`, `low_stock_threshold`, `mix_ratio`
+  - [ ] `content.rss` : `enabled`, `min_delay_days`, `max_age_days`, `feeds` (CRUD)
+  - [ ] `image` : `jpeg_quality`, `paper_texture`, `paper_texture_intensity`, `masthead_text`, `force_template`
+  - [ ] `caption` : `hashtags` (CRUD), `hashtags_separator`, `include_wikipedia_url`, `source_template_fr/en`
+  - [ ] `instagram` : `enabled`, `max_daily_posts`
+  - [ ] `facebook` : `enabled`
+  - [ ] `telegram` : `notification_debounce`
+  - [ ] `stories` : `enabled`, `max_text_chars`
+  - [ ] `log_level`
+  - [ ] Secrets `.env` : **jamais exposés**
+- [ ] Validations dashboard (`config_meta.py`) : cron via `CronTrigger`, `min_delay_days < max_age_days`, `public_base_url` si plateforme activée
+
+### Phase 10.4 — Infrastructure
+
+- [ ] `docker-compose.yml` : service `ancnouv-dashboard` (port `127.0.0.1:8766:8766`, volume `./data`)
+- [ ] nginx : `location /dashboard/` avec `auth_basic` + `.htpasswd`
+- [ ] `DASHBOARD_USER` / `DASHBOARD_PASSWORD` dans `.env.example`
+
+---
+
+## Phase 11 — v3+ (non planifié) [SPEC-8, SPEC-9]
 
 > Étude de faisabilité uniquement. Aucune implémentation avant stabilisation v2.
 
@@ -579,7 +639,7 @@
 
 ---
 
-## Phase 11 — Contenus thématiques (non planifié)
+## Phase 12 — Contenus thématiques (non planifié)
 
 ### Post quotidien anniversaire de naissance
 

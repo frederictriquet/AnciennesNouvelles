@@ -198,10 +198,10 @@ async def test_build_approval_keyboard_structure(mock_post):
 
     assert isinstance(keyboard, InlineKeyboardMarkup)
     assert len(keyboard.inline_keyboard) == 3
-    # Row 1: Publier, Rejeter
+    # Row 1: Publier maintenant, Ajouter à la file [SPEC-7ter, RF-7ter.2]
     assert len(keyboard.inline_keyboard[0]) == 2
-    # Row 2: Autre événement
-    assert len(keyboard.inline_keyboard[1]) == 1
+    # Row 2: Rejeter, Autre événement
+    assert len(keyboard.inline_keyboard[1]) == 2
     # Row 3: Modifier la légende
     assert len(keyboard.inline_keyboard[2]) == 1
 
@@ -219,6 +219,7 @@ async def test_build_approval_keyboard_callbacks(mock_post):
     callback_data = [btn.callback_data for btn in buttons_flat]
 
     assert "approve:42" in callback_data
+    assert "queue:42" in callback_data
     assert "reject:42" in callback_data
     assert "skip:42" in callback_data
     assert "edit:42" in callback_data

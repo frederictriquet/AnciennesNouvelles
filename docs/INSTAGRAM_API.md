@@ -430,33 +430,121 @@ Points clés :
 
 ---
 
-## [IG-5] Publication Stories Instagram (v2 — SPEC-7)
+## [IG-5] Publication Stories (v2 — SPEC-7)
 
-Stories : `media_type=STORIES`
+Implémenté dans `ancnouv/publisher/instagram.py` (`publish_story`) et `ancnouv/publisher/facebook.py` (`publish_story`). Déclenché depuis `publisher/__init__.py` (`_publish_stories`) juste après la publication feed, si `stories.enabled: true` et `story_image_url` disponible.
 
-**Endpoint création container Story :**
+### [IG-F5] Instagram Stories
+
+**Flux :** création container → polling statut → publication. Identique au post feed ([IG-3]) à deux différences près : `media_type=STORIES` et pas de `caption`.
+
+**Étape 1 — Création du container Story :**
+
 ```
-POST /{IG_USER_ID}/media
+POST https://graph.facebook.com/{api_version}/{IG_USER_ID}/media
+Content-Type: application/json
+
 {
-  "image_url": "...",
+  "image_url": "<URL publique de l'image 1080×1920>",
   "media_type": "STORIES",
-  "access_token": "..."
+  "access_token": "<USER_ACCESS_TOKEN>"
 }
-# Pas de champ "caption" — ignoré par l'API pour les Stories
 ```
 
-**Endpoint publication :** identique à IG-3.2 (`/media_publish` avec `creation_id`).
+Réponse attendue :
+```json
+{ "id": "<creation_id>" }
+```
 
-**Différences techniques vs post feed :**
-- Dimensions : 1080×1920 px (ratio 9:16)
-- Pas de légende possible via l'API
-- Pas de hashtags via l'API
-- Durée de vie : 24 heures
-- `media_type` : `"STORIES"` (obligatoire)
+> **Pas de champ `caption`** — ignoré pour les Stories. Les hashtags ne sont pas supportés via l'API Story.
 
-**Facebook Stories :** endpoint `/{page_id}/video_stories` (si vidéo) ou `/{page_id}/photo` (identique au feed mais avec paramètre `published=false` et `story=true` selon la version API — vérifier la documentation Meta à jour).
+**Étape 2 — Polling statut du container :** identique à [IG-3.3] (`status_code=FINISHED`).
 
-> Statut : non implémenté en v1. Cette section est une référence pour l'implémentation v2.
+**Étape 3 — Publication :**
+
+```
+POST https://graph.facebook.com/{api_version}/{IG_USER_ID}/media_publish
+Content-Type: application/json
+
+{
+  "creation_id": "<creation_id>",
+  "access_token": "<USER_ACCESS_TOKEN>"
+}
+```
+
+Réponse attendue :
+```json
+{ "id": "<story_media_id>" }
+```
+
+**Spécifications de l'image :**
+
+| Propriété | Valeur |
+|-----------|--------|
+| Dimensions | 1080 × 1920 px |
+| Ratio | 9:16 |
+| Format | JPEG |
+| Zones de sécurité | 270 px haut, 400 px bas (UI Instagram) |
+| Durée de vie | 24 heures |
+| Token requis | USER_ACCESS_TOKEN (`user_long`) |
+
+**Erreurs connues :**
+
+| Code | Signification | Comportement |
+|------|--------------|--------------|
+| 190 | Token invalide ou révoqué | `TokenExpiredError` |
+| 9007 | Container pas encore `FINISHED` (race condition) | `PublisherError` |
+| Timeout polling | Container bloqué en `IN_PROGRESS` > 60s | `PublisherError` |
+
+**Non-bloquant [RF-7.3.6] :** un échec Story ne modifie pas `post.status`. L'erreur est loggée en `WARNING` et la publication feed est conservée.
+
+---
+
+### [IG-F5B] Facebook Stories (photo)
+
+**Endpoint unique** — pas de flux container/publish comme Instagram :
+
+```
+POST https://graph.facebook.com/{api_version}/{PAGE_ID}/photo_stories
+Content-Type: application/json
+
+{
+  "url": "<URL publique de l'image 1080×1920>",
+  "access_token": "<PAGE_ACCESS_TOKEN>"
+}
+```
+
+Réponse attendue :
+```json
+{ "post_id": "<story_post_id>" }
+```
+
+> Fallback : si `post_id` absent, utilise `id`. Si aucun des deux n'est présent, `PublisherError` est levée.
+
+**Différences vs Instagram Stories :**
+
+| | Instagram | Facebook |
+|--|-----------|----------|
+| Endpoint | `/{IG_USER_ID}/media` + `media_publish` | `/{PAGE_ID}/photo_stories` |
+| Flux | Container → polling → publish (3 appels) | Direct (1 appel) |
+| Token | `user_long` | `page` |
+| Champ image | `image_url` | `url` |
+
+**Non-bloquant [RF-7.3.6] :** même comportement qu'Instagram Stories.
+
+---
+
+### [IG-F5C] Orchestration (`_publish_stories`)
+
+```python
+# publisher/__init__.py
+async def _publish_stories(post, story_image_url, ig_publisher, fb_publisher, session):
+    ...
+```
+
+Les deux Stories (IG + FB) sont lancées en parallèle via `asyncio.gather(*tasks, return_exceptions=True)`. Les exceptions sont loggées individuellement sans interrompre l'autre plateforme. Le premier `story_post_id` disponible (IG prioritaire) est persisté dans `post.story_post_id`.
+
+**Chemin image :** `data/images/{uuid}_story.jpg` (même UUID que le post feed `{uuid}.jpg`). Même politique de rétention que les images feed (`image_retention_days`, nettoyage par JOB-6).
 
 ---
 

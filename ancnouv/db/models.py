@@ -184,6 +184,7 @@ class Post(Base):
     )
     approved_at: Mapped[datetime | None] = mapped_column(nullable=True)
     published_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    scheduled_for: Mapped[datetime | None] = mapped_column(nullable=True)  # [SPEC-7ter, RF-7ter.6]
 
     __table_args__ = (
         CheckConstraint(
