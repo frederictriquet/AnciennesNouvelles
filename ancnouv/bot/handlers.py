@@ -184,8 +184,12 @@ async def _publish_approved_post(
                 "Utiliser /retry_fb pour retenter."
             )
         else:
-            ig_url = f"instagram.com/p/{results['instagram']}" if ig_ok else None
-            msg = f"Publié sur Instagram : {ig_url}" if ig_url else "✓ Publié avec succès."
+            parts = []
+            if results.get("instagram"):
+                parts.append(f"Instagram : {results['instagram']}")
+            if results.get("facebook"):
+                parts.append("Facebook : ✓")
+            msg = "Publié — " + " | ".join(parts) if parts else "✓ Publié avec succès."
             await notify_all(bot, config, msg)
     else:
         # status = "error"

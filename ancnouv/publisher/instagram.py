@@ -87,7 +87,9 @@ class InstagramPublisher:
         ig_post_id = await self._publish_container(
             self.ig_user_id, container_id, access_token
         )
-        return ig_post_id
+        # Récupérer le permalink public (l'ID numérique n'est pas l'URL)
+        permalink = await self._get_permalink(ig_post_id, access_token)
+        return permalink or ig_post_id
 
     async def _get_or_create_container(
         self,
@@ -192,6 +194,22 @@ class InstagramPublisher:
         response.raise_for_status()
 
         return data["id"]
+
+    async def _get_permalink(self, media_id: str, access_token: str) -> str | None:
+        """Récupère l'URL publique du post depuis l'API Graph [IG-3.2].
+
+        Retourne None en cas d'erreur — l'appelant utilise alors l'ID numérique.
+        """
+        url = f"https://graph.facebook.com/{self.api_version}/{media_id}"
+        params = {"fields": "permalink", "access_token": access_token}
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, params=params, timeout=10)
+            data = response.json()
+            return data.get("permalink")
+        except Exception as exc:
+            logger.warning("Impossible de récupérer le permalink IG %s : %s", media_id, exc)
+            return None
 
     async def _get_container_status(
         self, creation_id: str, access_token: str
