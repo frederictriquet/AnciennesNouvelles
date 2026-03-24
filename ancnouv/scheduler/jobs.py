@@ -467,6 +467,136 @@ async def _job_generate_inner() -> None:
         )
 
 
+# ─── JOB-7 : Publication des posts en file d'attente ───────────────────────────
+
+async def job_publish_queued() -> None:
+    """Publie les posts `queued` éligibles selon leur ordre de priorité. [SCHEDULER.md JOB-7, SPEC-7ter]
+
+    Activé en v2 uniquement. [TRANSVERSAL-2]
+    """
+    try:
+        await _job_publish_queued_inner()
+    except Exception as exc:
+        logger.error("JOB-7 erreur : %s", exc, exc_info=True)
+
+
+async def _job_publish_queued_inner() -> None:
+    from pathlib import Path
+
+    from ancnouv.bot.notifications import notify_all
+    from ancnouv.db.models import Post
+    from ancnouv.db.session import get_session
+    from ancnouv.exceptions import ImageHostingError
+    from ancnouv.publisher import publish_to_all_platforms
+    from ancnouv.publisher.facebook import FacebookPublisher
+    from ancnouv.publisher.image_hosting import upload_image
+    from ancnouv.publisher.instagram import InstagramPublisher
+    from ancnouv.publisher.token_manager import TokenManager
+    from ancnouv.scheduler.context import get_bot_app, get_config, get_engine
+
+    config = get_config()
+    bot_app = get_bot_app()
+    engine = get_engine()
+    now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
+
+    # Récupérer les post_ids éligibles [RF-7ter.6 : scheduled_for <= now() ou NULL]
+    async with get_session() as session:
+        result = await session.execute(
+            text(
+                "SELECT id FROM posts "
+                "WHERE status = 'queued' "
+                "AND (scheduled_for IS NULL OR scheduled_for <= :now) "
+                "ORDER BY scheduled_for ASC NULLS LAST, approved_at ASC"
+            ),
+            {"now": now_utc},
+        )
+        post_ids = [row[0] for row in result.fetchall()]
+
+    if not post_ids:
+        return
+
+    async def _notify(msg: str) -> None:
+        await notify_all(bot_app.bot, config, msg)
+
+    token_manager = TokenManager(
+        config.meta_app_id,
+        config.meta_app_secret,
+        api_version=config.instagram.api_version,
+        notify_fn=_notify,
+    )
+
+    ig_publisher = None
+    fb_publisher = None
+    if config.instagram.enabled:
+        ig_publisher = InstagramPublisher(
+            config.instagram.user_id, token_manager, config.instagram.api_version
+        )
+    if config.facebook.enabled:
+        fb_publisher = FacebookPublisher(
+            config.facebook.page_id, token_manager, config.instagram.api_version
+        )
+
+    for post_id in post_ids:
+        # Vérification limite journalière avant chaque post [RF-7ter.3, SC-1]
+        if not await check_and_increment_daily_count(engine, config.instagram.max_daily_posts):
+            await notify_all(
+                bot_app.bot, config,
+                "File d'attente : limite journalière atteinte — publication reprise demain."
+            )
+            return
+
+        async with get_session() as session:
+            # Verrou optimiste : transition queued → publishing [JOB-7]
+            upd = await session.execute(
+                text(
+                    "UPDATE posts SET status = 'publishing', updated_at = CURRENT_TIMESTAMP "
+                    "WHERE id = :id AND status = 'queued'"
+                ),
+                {"id": post_id},
+            )
+            if upd.rowcount == 0:
+                continue
+
+            post = await session.get(Post, post_id)
+            if post is None:
+                continue
+            await session.refresh(post)
+            await session.commit()
+
+            try:
+                # Upload feed si pas encore fait [TG-F6]
+                if not post.image_public_url:
+                    if not post.image_path:
+                        raise ValueError(f"Post {post_id} sans image_path")
+                    url = await upload_image(Path(post.image_path), config)
+                    post.image_public_url = url
+                    await session.commit()
+
+                # Upload story si activé [SPEC-7, RF-7.3.3, non-bloquant RF-7.3.6]
+                story_image_url: str | None = None
+                if config.stories.enabled and post.story_image_path:
+                    try:
+                        story_image_url = await upload_image(Path(post.story_image_path), config)
+                    except ImageHostingError as exc:
+                        logger.warning("JOB-7 upload Story échoué (non-bloquant) : %s", exc)
+
+                await publish_to_all_platforms(
+                    post, post.image_public_url, ig_publisher, fb_publisher, session,
+                    story_image_url=story_image_url,
+                )
+                await notify_all(bot_app.bot, config, f"File d'attente : post #{post_id} publié.")
+            except Exception as exc:
+                logger.error("JOB-7 publication post %s : %s", post_id, exc, exc_info=True)
+                post.status = "error"
+                post.error_message = str(exc)
+                post.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                await session.commit()
+                await notify_all(
+                    bot_app.bot, config,
+                    f"File d'attente : échec post #{post_id} : {exc}."
+                )
+
+
 # ─── JOB-4 : Expiration des posts ──────────────────────────────────────────────
 
 async def job_check_expired() -> None:

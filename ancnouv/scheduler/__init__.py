@@ -42,6 +42,7 @@ def create_scheduler(config: Config) -> "AsyncIOScheduler":
         job_fetch_rss,
         job_fetch_wiki,
         job_generate,
+        job_publish_queued,
     )
 
     # [ARCH-15] scheduler.db relatif à config.data_dir — URL sync (sans aiosqlite) [SCHEDULER.md]
@@ -130,10 +131,17 @@ def create_scheduler(config: Config) -> "AsyncIOScheduler":
         jobstore="memory",
     )
 
-    # JOB-7 — publication queued — commenté en v1 [TRANSVERSAL-2, SC-15]
-    # Procédure de déblocage v1 : UPDATE posts SET status='approved' WHERE status='queued'
-    # puis /retry depuis Telegram.
-    # scheduler.add_job(job_publish_queued, "interval", minutes=5, id="job_publish_queued")
+    # JOB-7 — publication queued — même cron que JOB-3 [SPEC-7ter, RF-7ter.3]
+    # MemoryJobStore : non-persistant (pas de replace_existing nécessaire)
+    scheduler.add_job(
+        job_publish_queued,
+        CronTrigger.from_crontab(
+            config.scheduler.generation_cron,
+            timezone=config.scheduler.timezone,
+        ),
+        id="job_publish_queued",
+        jobstore="memory",
+    )
 
     set_scheduler(scheduler)
     return scheduler

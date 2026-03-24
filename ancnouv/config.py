@@ -22,7 +22,7 @@ class SchedulerConfig(BaseSettings):
     approval_timeout_hours: int = Field(default=48, ge=1, le=8760)
     auto_publish: bool = False
     misfire_grace_time: int = Field(default=300, ge=1)
-    # v2 : max_queue_size: int = 10
+    max_queue_size: int = Field(default=10, ge=1, le=100)  # [SPEC-7ter, RF-7ter.5]
 
 
 class RssFeedConfig(BaseSettings):

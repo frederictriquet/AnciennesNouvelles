@@ -56,9 +56,9 @@ def test_setup_handlers_adds_handlers_to_app():
     app = MagicMock()
     setup_handlers(app)
 
-    # Should have called add_handler at least 15 times
-    # (1 ConversationHandler + 3 CallbackQuery + 11 Command)
-    assert app.add_handler.call_count >= 15
+    # Should have called add_handler at least 17 times
+    # (1 ConversationHandler + 4 CallbackQuery + 12 Command)
+    assert app.add_handler.call_count >= 17
 
 
 def test_setup_handlers_registers_handlers_in_order():
@@ -81,7 +81,7 @@ def test_setup_handlers_registers_handlers_in_order():
 
 
 def test_setup_handlers_registers_all_command_handlers():
-    """should register all 11 command handlers [SPEC-3.3.6]."""
+    """should register all 12 command handlers [SPEC-3.3.6, SPEC-7ter]."""
     from ancnouv.bot.bot import setup_handlers
     from telegram.ext import CommandHandler
 
@@ -96,8 +96,8 @@ def test_setup_handlers_registers_all_command_handlers():
 
     setup_handlers(app)
 
-    # Should have 11 command handlers
-    assert len(command_handlers) == 11
+    # Should have 12 command handlers
+    assert len(command_handlers) == 12
 
 
 def test_setup_handlers_uses_underscore_in_command_names():

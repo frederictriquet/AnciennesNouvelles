@@ -77,13 +77,16 @@ async def notify_all(bot: Bot, config: "Config", message: str) -> None:
 
 
 def _build_approval_keyboard(post_id: int) -> InlineKeyboardMarkup:
-    """Construit le clavier inline d'approbation. [SPEC-3.3.2]"""
+    """Construit le clavier inline d'approbation. [SPEC-3.3.2, SPEC-7ter, RF-7ter.2]"""
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("Publier", callback_data=f"approve:{post_id}"),
-            InlineKeyboardButton("Rejeter", callback_data=f"reject:{post_id}"),
+            InlineKeyboardButton("Publier maintenant", callback_data=f"approve:{post_id}"),
+            InlineKeyboardButton("Ajouter à la file", callback_data=f"queue:{post_id}"),
         ],
-        [InlineKeyboardButton("Autre événement", callback_data=f"skip:{post_id}")],
+        [
+            InlineKeyboardButton("Rejeter", callback_data=f"reject:{post_id}"),
+            InlineKeyboardButton("Autre événement", callback_data=f"skip:{post_id}"),
+        ],
         [InlineKeyboardButton("Modifier la légende", callback_data=f"edit:{post_id}")],
     ])
 
