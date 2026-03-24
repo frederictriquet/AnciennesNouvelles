@@ -4,23 +4,25 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# [CLI.md] URLs statiques Google Fonts (pas les variable fonts — incompatibles Pillow)
+# [CLI.md] URLs GitHub google/fonts — stables (pas de numéro de version).
+# Playfair Display est une variable font depuis v38 ; la version statique Bold
+# est dans le sous-répertoire static/.
 _FONTS: list[tuple[str, str]] = [
     (
         "PlayfairDisplay-Bold.ttf",
-        "https://fonts.gstatic.com/s/playfairdisplay/v37/nuFiD-vYSZviVYUb_rj3ij__anPXJzDwcbmjWBN2PKdFvUDQ.ttf",
+        "https://raw.githubusercontent.com/google/fonts/main/ofl/playfairdisplay/static/PlayfairDisplay-Bold.ttf",
     ),
     (
         "LibreBaskerville-Regular.ttf",
-        "https://fonts.gstatic.com/s/librebaskerville/v14/kmKnZrc3Hgbbcjq75U4uslyuy4kn0qNcaxYaDcs.ttf",
+        "https://raw.githubusercontent.com/google/fonts/main/ofl/librebaskerville/LibreBaskerville-Regular.ttf",
     ),
     (
         "LibreBaskerville-Italic.ttf",
-        "https://fonts.gstatic.com/s/librebaskerville/v14/kmKhZrc3Hgbbcjq75U4uslyuy4kn0qNXaxMaDg.ttf",
+        "https://raw.githubusercontent.com/google/fonts/main/ofl/librebaskerville/LibreBaskerville-Italic.ttf",
     ),
     (
         "IMFellEnglish-Regular.ttf",
-        "https://fonts.gstatic.com/s/imfellenglish/v17/Ktk1ALSLW8zDe0rthJysWo9SN7LhKbMXUQ.ttf",
+        "https://raw.githubusercontent.com/google/fonts/main/ofl/imfellenglish/IMFellEnglish-Regular.ttf",
     ),
 ]
 
