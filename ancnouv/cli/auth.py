@@ -30,7 +30,7 @@ async def _cmd_auth_meta_impl(config: Config, session: AsyncSession) -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
-            sock.bind(("localhost", 8080))
+            sock.bind(("localhost", 8082))
         except OSError as exc:
             print(
                 f"Erreur : port 8080 déjà utilisé ({exc}). "
@@ -65,7 +65,7 @@ async def _cmd_auth_meta_impl(config: Config, session: AsyncSession) -> int:
         def log_message(self, *args):
             pass  # silence les logs HTTP
 
-    server = HTTPServer(("localhost", 8080), _CallbackHandler)
+    server = HTTPServer(("localhost", 8082), _CallbackHandler)
     server.timeout = 120
 
     # Construction de l'URL OAuth

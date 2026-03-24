@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import errno as errno_module
 import logging
+import signal
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -183,12 +184,18 @@ async def run_image_server(port: int = 8765, token: str = "") -> int:
 
     print(f"Serveur d'images démarré sur le port {port}. Ctrl+C pour arrêter.")
 
+    loop = asyncio.get_running_loop()
+    stop_event = asyncio.Event()
+
+    # SIGTERM envoyé par `docker stop` — déclenche l'arrêt propre [ARCH-22]
+    loop.add_signal_handler(signal.SIGTERM, stop_event.set)
+
     try:
-        while True:
-            await asyncio.sleep(3600)
+        await stop_event.wait()
     except (asyncio.CancelledError, KeyboardInterrupt):
         pass
     finally:
+        loop.remove_signal_handler(signal.SIGTERM)
         await runner.cleanup()
 
     return 0
