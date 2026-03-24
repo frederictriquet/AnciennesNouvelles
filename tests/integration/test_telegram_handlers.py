@@ -959,7 +959,8 @@ async def test_publish_approved_post_success(db_session, db_event, mock_config):
 
     async def mock_publish(p, url, ig_pub, fb_pub, session, **kwargs):
         p.status = "published"
-        return {"instagram": "IG123", "facebook": None}
+        p.story_post_id = "1081229261736277_story_001"
+        return {"instagram": "IG123", "facebook": "1081229261736277_post_456"}
 
     notified = []
 

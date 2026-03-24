@@ -206,6 +206,13 @@ async def _publish_approved_post(
                 else:
                     fb_url = f"https://www.facebook.com/{fb_id}"
                 parts.append(f"Facebook : {fb_url}")
+            if post.story_post_id:
+                story_id = post.story_post_id
+                if "_" in story_id:
+                    pg, obj = story_id.split("_", 1)
+                    parts.append(f"Story FB : https://www.facebook.com/{pg}/posts/{obj}")
+                else:
+                    parts.append(f"Story IG : {story_id}")
             msg = "Publié — " + " | ".join(parts) if parts else "✓ Publié avec succès."
             await notify_all(bot, config, msg)
     else:

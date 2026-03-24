@@ -112,12 +112,18 @@ async def test_facebook_no_page_token_raises(db_session, mock_config):
 
 
 async def test_facebook_publish_story_success(db_session, mock_config, httpx_mock):
-    """publish_story → retourne story_post_id. [SPEC-7, SPEC-7.3.4, IG-F5B]"""
+    """publish_story → upload photo puis photo_stories → retourne story_post_id. [SPEC-7, SPEC-7.3.4, IG-F5B]"""
     from ancnouv.publisher.facebook import FacebookPublisher
     from ancnouv.publisher.token_manager import TokenManager
 
     await seed_page_token(db_session)
 
+    # Étape 1 : upload photo non publiée
+    httpx_mock.add_response(
+        url=f"https://graph.facebook.com/v21.0/{mock_config.facebook.page_id}/photos",
+        json={"id": "photo_upload_456"},
+    )
+    # Étape 2 : création story
     httpx_mock.add_response(
         url=f"https://graph.facebook.com/v21.0/{mock_config.facebook.page_id}/photo_stories",
         json={"post_id": "story_fb_123"},
@@ -135,7 +141,32 @@ async def test_facebook_publish_story_success(db_session, mock_config, httpx_moc
 
 
 async def test_facebook_publish_story_error(db_session, mock_config, httpx_mock):
-    """publish_story avec erreur Meta → PublisherError. [SPEC-7, IG-F5B]"""
+    """publish_story erreur upload → PublisherError. [SPEC-7, IG-F5B]"""
+    from ancnouv.exceptions import PublisherError
+    from ancnouv.publisher.facebook import FacebookPublisher
+    from ancnouv.publisher.token_manager import TokenManager
+
+    await seed_page_token(db_session)
+
+    # Erreur dès l'upload
+    httpx_mock.add_response(
+        url=f"https://graph.facebook.com/v21.0/{mock_config.facebook.page_id}/photos",
+        json={"error": {"code": 500, "message": "Internal error."}},
+    )
+
+    token_mgr = TokenManager(mock_config.meta_app_id, mock_config.meta_app_secret)
+    publisher = FacebookPublisher(
+        page_id=mock_config.facebook.page_id,
+        token_manager=token_mgr,
+        api_version="v21.0",
+    )
+
+    with pytest.raises(PublisherError):
+        await publisher.publish_story("https://example.com/story.jpg", db_session)
+
+
+async def test_facebook_publish_story_step2_error(db_session, mock_config, httpx_mock):
+    """publish_story : upload OK mais photo_stories erreur → PublisherError. [IG-F5B]"""
     from ancnouv.exceptions import PublisherError
     from ancnouv.publisher.facebook import FacebookPublisher
     from ancnouv.publisher.token_manager import TokenManager
@@ -143,8 +174,12 @@ async def test_facebook_publish_story_error(db_session, mock_config, httpx_mock)
     await seed_page_token(db_session)
 
     httpx_mock.add_response(
+        url=f"https://graph.facebook.com/v21.0/{mock_config.facebook.page_id}/photos",
+        json={"id": "photo_upload_789"},
+    )
+    httpx_mock.add_response(
         url=f"https://graph.facebook.com/v21.0/{mock_config.facebook.page_id}/photo_stories",
-        json={"error": {"code": 500, "message": "Internal error."}},
+        json={"error": {"code": 200, "message": "Permission error."}},
     )
 
     token_mgr = TokenManager(mock_config.meta_app_id, mock_config.meta_app_secret)

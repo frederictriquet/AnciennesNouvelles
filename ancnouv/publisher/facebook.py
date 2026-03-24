@@ -90,34 +90,60 @@ class FacebookPublisher:
     ) -> str:
         """Publie une Story sur la Page Facebook. Retourne story_post_id. [SPEC-7, SPEC-7.3.4]
 
-        Endpoint : POST /{page-id}/photo_stories [SPEC-7.2, IG-F5].
+        Flux en 2 étapes [IG-F5B] :
+        1. Upload photo non publiée → photo_id
+        2. POST /{page-id}/photo_stories avec photo_id
         """
         access_token = await self.token_manager.get_valid_token(
             session, token_kind="page"
         )
 
-        url = f"https://graph.facebook.com/{self.api_version}/{self.page_id}/photo_stories"
-        payload = {
+        # Étape 1 : upload photo non publiée
+        upload_url = f"https://graph.facebook.com/{self.api_version}/{self.page_id}/photos"
+        upload_payload = {
             "url": image_url,
+            "published": False,
             "access_token": access_token,
         }
-
         async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload, timeout=30)
+            upload_resp = await client.post(upload_url, json=upload_payload, timeout=30)
 
-        data = response.json()
+        upload_data = upload_resp.json()
+        if "error" in upload_data:
+            err = upload_data["error"]
+            code = err.get("code", 0)
+            message = err.get("message", str(err))
+            if code == 190:
+                raise TokenExpiredError(
+                    f"Token Meta invalide ou révoqué (code 190) : {message}"
+                )
+            raise PublisherError(f"Meta Facebook Story upload error {code}: {message}")
+        upload_resp.raise_for_status()
 
+        photo_id = upload_data.get("id")
+        if not photo_id:
+            raise PublisherError("Upload Facebook Story : réponse sans photo id.")
+
+        # Étape 2 : créer la story avec le photo_id
+        story_url = f"https://graph.facebook.com/{self.api_version}/{self.page_id}/photo_stories"
+        story_payload = {
+            "photo_id": photo_id,
+            "access_token": access_token,
+        }
+        async with httpx.AsyncClient() as client:
+            story_resp = await client.post(story_url, json=story_payload, timeout=30)
+
+        data = story_resp.json()
         if "error" in data:
             err = data["error"]
             code = err.get("code", 0)
             message = err.get("message", str(err))
             if code == 190:
-                raise PublisherError(
+                raise TokenExpiredError(
                     f"Token Meta invalide ou révoqué (code 190) : {message}"
                 )
             raise PublisherError(f"Meta Facebook Story API error {code}: {message}")
-
-        response.raise_for_status()
+        story_resp.raise_for_status()
 
         story_id = data.get("post_id") or data.get("id")
         if not story_id:

@@ -502,33 +502,48 @@ Réponse attendue :
 
 ### [IG-F5B] Facebook Stories (photo)
 
-**Endpoint unique** — pas de flux container/publish comme Instagram :
+**Flux en 2 étapes** — l'endpoint `photo_stories` n'accepte pas d'URL directe, il faut d'abord uploader la photo (non publiée) :
 
+**Étape 1 — Upload photo non publiée :**
+```
+POST https://graph.facebook.com/{api_version}/{PAGE_ID}/photos
+Content-Type: application/json
+
+{
+  "url": "<URL publique de l'image 1080×1920>",
+  "published": false,
+  "access_token": "<PAGE_ACCESS_TOKEN>"
+}
+```
+Réponse : `{ "id": "<photo_id>" }`
+
+**Étape 2 — Création de la Story :**
 ```
 POST https://graph.facebook.com/{api_version}/{PAGE_ID}/photo_stories
 Content-Type: application/json
 
 {
-  "url": "<URL publique de l'image 1080×1920>",
+  "photo_id": "<photo_id>",
   "access_token": "<PAGE_ACCESS_TOKEN>"
 }
 ```
-
 Réponse attendue :
 ```json
 { "post_id": "<story_post_id>" }
 ```
 
 > Fallback : si `post_id` absent, utilise `id`. Si aucun des deux n'est présent, `PublisherError` est levée.
+>
+> **Note** : Passer `url` directement à `photo_stories` (sans upload préalable) retourne l'erreur code 1 "An unknown error has occurred."
 
 **Différences vs Instagram Stories :**
 
 | | Instagram | Facebook |
 |--|-----------|----------|
-| Endpoint | `/{IG_USER_ID}/media` + `media_publish` | `/{PAGE_ID}/photo_stories` |
-| Flux | Container → polling → publish (3 appels) | Direct (1 appel) |
+| Endpoint | `/{IG_USER_ID}/media` + `media_publish` | `/{PAGE_ID}/photos` (upload) + `/{PAGE_ID}/photo_stories` |
+| Flux | Container → polling → publish (3 appels) | Upload non publié → story (2 appels) |
 | Token | `user_long` | `page` |
-| Champ image | `image_url` | `url` |
+| Champ image | `image_url` | `url` (étape 1), `photo_id` (étape 2) |
 
 **Non-bloquant [RF-7.3.6] :** même comportement qu'Instagram Stories.
 

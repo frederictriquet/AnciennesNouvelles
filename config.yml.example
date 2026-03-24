@@ -66,6 +66,9 @@ facebook:
   enabled: false
   page_id: ""
 
+stories:
+  enabled: false
+
 telegram:
   authorized_user_ids:
     - 123456789

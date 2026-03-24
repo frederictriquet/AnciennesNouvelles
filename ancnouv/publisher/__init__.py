@@ -18,6 +18,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _fb_url(post_id: str) -> str:
+    """Convertit un post_id Facebook ({page_id}_{object_id}) en URL publique."""
+    if "_" in post_id:
+        page_id, obj_id = post_id.split("_", 1)
+        return f"https://www.facebook.com/{page_id}/posts/{obj_id}"
+    return f"https://www.facebook.com/{post_id}"
+
+
 async def _check_and_increment_daily_count(
     session: AsyncSession,
     max_daily_posts: int,
@@ -141,7 +149,7 @@ async def publish_to_all_platforms(
                 logger.error("Échec publication Facebook (post %d) : %s", post.id, result)
             else:
                 fb_result = result
-                logger.info("Facebook OK (post %d) : %s", post.id, result)
+                logger.info("Facebook OK (post %d) : %s", post.id, _fb_url(result))
 
     # Mise à jour atomique : status + erreurs + published_count dans un seul commit [DB-2]
     now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -246,7 +254,8 @@ async def _publish_stories(
             logger.error("Échec Story %s (post %d) : %s", label, post.id, result)
         else:
             story_ids.append(result)
-            logger.info("Story %s OK (post %d) : %s", label, post.id, result)
+            url_str = _fb_url(result) if label == "fb" else result
+            logger.info("Story %s OK (post %d) : %s", label, post.id, url_str)
 
     if story_ids:
         # Stocker le premier story_post_id disponible (IG prioritaire)
