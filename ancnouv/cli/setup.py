@@ -5,24 +5,25 @@ import sys
 from pathlib import Path
 
 # [CLI.md] URLs GitHub google/fonts — stables (pas de numéro de version).
-# Playfair Display est une variable font depuis v38 ; la version statique Bold
-# est dans le sous-répertoire static/.
+# Playfair Display et Libre Baskerville sont des variable fonts dans le dépôt
+# google/fonts ; téléchargées sous les noms attendus par image.py.
+# IM Fell English conserve ses fichiers statiques (renommés côté source).
 _FONTS: list[tuple[str, str]] = [
     (
         "PlayfairDisplay-Bold.ttf",
-        "https://raw.githubusercontent.com/google/fonts/main/ofl/playfairdisplay/static/PlayfairDisplay-Bold.ttf",
+        "https://raw.githubusercontent.com/google/fonts/main/ofl/playfairdisplay/PlayfairDisplay%5Bwght%5D.ttf",
     ),
     (
         "LibreBaskerville-Regular.ttf",
-        "https://raw.githubusercontent.com/google/fonts/main/ofl/librebaskerville/LibreBaskerville-Regular.ttf",
+        "https://raw.githubusercontent.com/google/fonts/main/ofl/librebaskerville/LibreBaskerville%5Bwght%5D.ttf",
     ),
     (
         "LibreBaskerville-Italic.ttf",
-        "https://raw.githubusercontent.com/google/fonts/main/ofl/librebaskerville/LibreBaskerville-Italic.ttf",
+        "https://raw.githubusercontent.com/google/fonts/main/ofl/librebaskerville/LibreBaskerville-Italic%5Bwght%5D.ttf",
     ),
     (
         "IMFellEnglish-Regular.ttf",
-        "https://raw.githubusercontent.com/google/fonts/main/ofl/imfellenglish/IMFellEnglish-Regular.ttf",
+        "https://raw.githubusercontent.com/google/fonts/main/ofl/imfellenglish/IMFeENrm28P.ttf",
     ),
 ]
 
