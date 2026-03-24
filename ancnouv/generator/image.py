@@ -199,39 +199,23 @@ def _draw_thumbnail(
 ) -> None:
     """Colle le thumbnail dans la zone W_INNER×300px à partir de y. [IMAGE_GENERATION.md]
 
-    Traitement selon ratio :
-    - Paysage (> 1.5) : letterbox centré verticalement
-    - Portrait (< 0.7) : crop centré (fit en largeur, crop en hauteur)
-    - Carré (0.7–1.5)  : resize direct (distorsion intentionnelle documentée)
+    Letterbox : zoom au ratio le plus petit (fit), centré dans la zone.
+    L'image entière est visible — le fond papier remplit les bandes restantes.
     """
     TARGET_W = W - 2 * PADDING  # = W_INNER pour W=1080
     TARGET_H = 300
 
     orig_w, orig_h = thumbnail.size
-    if orig_h == 0:
+    if orig_h == 0 or orig_w == 0:
         return
-    ratio = orig_w / orig_h
 
-    if ratio > 1.5:
-        # Letterbox : fit en largeur, bandes fond papier
-        new_h = int(TARGET_W / ratio)
-        resized = thumbnail.resize((TARGET_W, new_h), Image.LANCZOS)
-        bg = Image.new("RGB", (TARGET_W, TARGET_H), color=COLORS["background"])
-        y_offset = (TARGET_H - new_h) // 2
-        bg.paste(resized, (0, max(0, y_offset)))
-        img.paste(bg, (PADDING, y))
-    elif ratio < 0.7:
-        # Crop centré : fit en largeur [IMAGE_GENERATION.md — invariant new_h >= TARGET_H]
-        new_w = TARGET_W
-        new_h = int(TARGET_W / ratio)
-        resized = thumbnail.resize((new_w, new_h), Image.LANCZOS)
-        y_crop = (new_h - TARGET_H) // 2
-        cropped = resized.crop((0, y_crop, TARGET_W, y_crop + TARGET_H))
-        img.paste(cropped, (PADDING, y))
-    else:
-        # Carré : resize direct, distorsion intentionnelle documentée [IMAGE_GENERATION.md]
-        resized = thumbnail.resize((TARGET_W, TARGET_H), Image.LANCZOS)
-        img.paste(resized, (PADDING, y))
+    scale = min(TARGET_W / orig_w, TARGET_H / orig_h)
+    new_w = int(orig_w * scale)
+    new_h = int(orig_h * scale)
+    resized = thumbnail.resize((new_w, new_h), Image.LANCZOS)
+    x_offset = PADDING + (TARGET_W - new_w) // 2
+    y_offset = y + (TARGET_H - new_h) // 2
+    img.paste(resized, (x_offset, y_offset))
 
 
 def _draw_event_text(
@@ -335,13 +319,16 @@ async def fetch_thumbnail(image_url: str | None) -> Image.Image | None:
 
     import httpx au niveau module — fail-fast si absent. [IMG-9]
     Timeout 5s. Retourne None si HTTP != 200 ou toute exception.
+    User-Agent obligatoire : Wikimedia retourne 403 sans en-tête. [IMG-14]
     """
     if not image_url:
         return None
+    headers = {"User-Agent": "AnciennesNouvelles/1.0 (https://github.com/anciennesnouv)"}
     try:
         async with httpx.AsyncClient() as client:
-            r = await client.get(image_url, timeout=5.0)
+            r = await client.get(image_url, timeout=5.0, headers=headers)
         if r.status_code != 200:
+            logger.warning("fetch_thumbnail HTTP %d pour %s", r.status_code, image_url)
             return None
         return Image.open(BytesIO(r.content)).convert("RGB")
     except Exception as exc:
@@ -394,6 +381,7 @@ def _generate_image_inner(
             )
             date_str = _format_date_int(source.year, source.month, source.day)
         text = truncate_for_image(getattr(source, "description", "") or "")
+        text = text[:1].upper() + text[1:] if text else text
         if getattr(source, "source_lang", "fr") == "en":
             source_text = config.caption.source_template_en
         else:
