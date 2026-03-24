@@ -133,8 +133,8 @@ class WikipediaFetcher(BaseFetcher):
                 continue
             if len(text_raw) < 20:
                 continue
-            if len(text_raw) > 500:
-                text_raw = text_raw[:500]
+            if len(text_raw) > 1200:
+                text_raw = text_raw[:1200].rsplit(" ", 1)[0] + "..."
 
             # [DS-1.7] Extraction URL Wikipedia et thumbnail
             pages = entry.get("pages") or []
