@@ -60,7 +60,7 @@ class WikipediaFetcher(BaseFetcher):
         async with httpx.AsyncClient() as client:
             for attempt in range(3):
                 try:
-                    r = await client.get(url, headers=headers, timeout=10.0)
+                    r = await client.get(url, headers=headers, timeout=30.0)
                 except httpx.RequestError as exc:
                     raise FetcherError(
                         f"Erreur réseau Wikipedia {url} : {exc}"

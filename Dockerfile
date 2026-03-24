@@ -16,6 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY ancnouv/ ./ancnouv/
 COPY assets/ ./assets/
+COPY scripts/ ./scripts/
 # [D-06] Fichiers Alembic obligatoires — sans eux, db init et db migrate échouent dans le conteneur
 COPY alembic.ini .
 COPY ancnouv/db/migrations/ ./ancnouv/db/migrations/
