@@ -403,14 +403,16 @@ def _generate_image_inner(
 
     # 5. Thumbnail + texte événement
     if thumbnail is not None:
-        _draw_thumbnail(img, thumbnail, y=260, W=W)
-        _draw_event_text(draw, W, text, text_y=600, max_height=600, fonts=fonts)
+        _draw_thumbnail(img, thumbnail, y=280, W=W)
+        _draw_event_text(draw, W, text, text_y=620, max_height=580, fonts=fonts)
     else:
-        _draw_event_text(draw, W, text, text_y=260, max_height=940, fonts=fonts)
+        _draw_event_text(draw, W, text, text_y=285, max_height=915, fonts=fonts)
 
     # 6. Séparateurs + footer (trois dividers selon la spec [IMAGE_GENERATION.md])
+    # date_str est à y=230, police 32px — s'étend jusqu'à ~y=266.
+    # Divider à y=275 pour laisser un espacement propre. [IMG-11]
     _draw_divider(draw, W, y=175)   # après masthead
-    _draw_divider(draw, W, y=255)   # après date banner
+    _draw_divider(draw, W, y=275)   # après date banner
     _draw_divider(draw, W, y=1230)  # avant footer
     _draw_footer(draw, W, H, source_text, fonts)
 
