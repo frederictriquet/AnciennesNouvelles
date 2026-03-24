@@ -72,7 +72,6 @@ async def _cmd_auth_meta_impl(config: Config, session: AsyncSession) -> int:
     scopes = ",".join([
         "instagram_basic",
         "instagram_content_publish",
-        "instagram_creator_manage_content",
         "pages_show_list",
         "pages_read_engagement",
         "pages_manage_posts",
