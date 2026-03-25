@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Configuration{% endblock %}
+{% block content %}
+
+{% if restart_required %}
+<div class="banner banner-warn">
+  ⚠ Des paramètres modifiés nécessitent un redémarrage d'ancnouv.
+  Commande : <code>docker compose restart ancnouv</code>
+</div>
+{% endif %}
+{% if reload_pending %}
+<div class="banner banner-info">
+  ℹ Modifications en attente de prise en compte par ancnouv (≤ 30s).
+</div>
+{% endif %}
+
+<h1>Configuration</h1>
+
+{% for section in sections %}
+<div class="card">
+  <details {% if loop.first %}open{% endif %}>
+    <summary>{{ section.label }}</summary>
+    {% for field in section.fields %}
+      {% include "_field.html" %}
+    {% endfor %}
+  </details>
+</div>
+{% endfor %}
+
+{% endblock %}

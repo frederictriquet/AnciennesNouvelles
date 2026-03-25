@@ -565,55 +565,44 @@
 
 ### Phase 10.1 — Table `config_overrides` et persistance (ancnouv)
 
-- [ ] Migration Alembic : table `config_overrides` (`key TEXT PK`, `value TEXT`, `value_type TEXT`, `updated_at`)
-- [ ] `ancnouv/db/config_store.py` : `get_all_overrides()`, `get_override()`, `set_override()`, `delete_override()`
-- [ ] `value_type` : `'str' | 'int' | 'float' | 'bool' | 'list' | 'dict'` (JSON-encodé)
-- [ ] Tests unitaires `config_store`
+- [x] Migration Alembic : table `config_overrides` (`key TEXT PK`, `value TEXT`, `value_type TEXT`, `updated_at`)
+- [x] `ancnouv/db/config_store.py` : `get_all_overrides()`, `get_override()`, `set_override()`, `delete_override()`
+- [x] `value_type` : `'str' | 'int' | 'float' | 'bool' | 'list' | 'dict'` (JSON-encodé)
+- [x] Tests unitaires `config_store`
 
 ### Phase 10.2 — Config overlay dans ancnouv
 
-- [ ] `ancnouv/config_loader.py` : `get_effective_config()` avec cache TTL 30s
-  - [ ] Charge YAML via `Config` (base), puis applique les overrides DB (`apply_dot_overrides`)
-  - [ ] `invalidate_config_cache()` appelé après écriture dashboard (via `scheduler_state` flag)
-- [ ] `apply_dot_overrides(base_dict, overrides_flat)` : merge par dot-path
-- [ ] Jobs APScheduler migrent de `get_config()` vers `get_effective_config()`
-- [ ] Flag `config_restart_required` dans `scheduler_state` si `scheduler.generation_cron` modifié
-- [ ] Tests unitaires overlay
+- [x] `ancnouv/config_loader.py` : `get_effective_config()` avec cache TTL 30s
+  - [x] Charge YAML via `Config` (base), puis applique les overrides DB (`apply_dot_overrides`)
+  - [x] `invalidate_config_cache()` appelé après écriture dashboard (via `scheduler_state` flag)
+- [x] `apply_dot_overrides(base_dict, overrides_flat)` : merge par dot-path
+- [x] Jobs APScheduler migrent de `get_config()` vers `get_effective_config()`
+- [x] Flag `config_restart_required` dans `scheduler_state` si `scheduler.generation_cron` modifié
+- [x] Tests unitaires overlay
 
 ### Phase 10.3 — Service dashboard
 
-- [ ] Structure `dashboard/` dans le repo
-  - [ ] `Dockerfile` (python:3.12-slim, uvicorn, port 8766)
-  - [ ] `requirements.txt` : fastapi, uvicorn, jinja2, aiosqlite, sqlalchemy, pydantic
-  - [ ] `main.py`, `db.py`, `config_meta.py` (définitions des settings exposés)
-  - [ ] `routers/overview.py`, `routers/config.py`, `routers/posts.py`
-  - [ ] `templates/` : `base.html`, `overview.html`, `config.html`, `posts.html`
-- [ ] **Vue d'ensemble** (`GET /`) : état bot (paused/running), daily count, derniers posts, alertes token
-- [ ] **Éditeur config** (`GET /config`) : sections accordéon, widgets adaptés au type, badge "override" vs "défaut"
-  - [ ] `POST /config/set` (htmx) : écriture `config_overrides`, validation inline, retour fragment
-  - [ ] `POST /config/reset/{key}` (htmx) : suppression override, retour valeur défaut
-  - [ ] Bandeau "redémarrage requis" si `config_restart_required` présent
-- [ ] **Posts récents** (`GET /posts`) : liste avec statuts
-- [ ] `GET /health` : healthcheck 200 OK
-- [ ] Settings exposés :
-  - [ ] `scheduler` : `generation_cron`, `max_pending_posts`, `approval_timeout_hours`, `auto_publish`
-  - [ ] `content` : `prefetch_days`, `wikipedia_event_types`, `wikipedia_min_events`, `deduplication_policy`, `deduplication_window_days`, `image_retention_days`, `low_stock_threshold`, `mix_ratio`
-  - [ ] `content.rss` : `enabled`, `min_delay_days`, `max_age_days`, `feeds` (CRUD)
-  - [ ] `image` : `jpeg_quality`, `paper_texture`, `paper_texture_intensity`, `masthead_text`, `force_template`
-  - [ ] `caption` : `hashtags` (CRUD), `hashtags_separator`, `include_wikipedia_url`, `source_template_fr/en`
-  - [ ] `instagram` : `enabled`, `max_daily_posts`
-  - [ ] `facebook` : `enabled`
-  - [ ] `telegram` : `notification_debounce`
-  - [ ] `stories` : `enabled`, `max_text_chars`
-  - [ ] `log_level`
-  - [ ] Secrets `.env` : **jamais exposés**
-- [ ] Validations dashboard (`config_meta.py`) : cron via `CronTrigger`, `min_delay_days < max_age_days`, `public_base_url` si plateforme activée
+- [x] Structure `dashboard/` dans le repo
+  - [x] `Dockerfile` (python:3.12-slim, uvicorn, port 8766)
+  - [x] `requirements.txt` : fastapi, uvicorn, jinja2, aiosqlite, sqlalchemy, pydantic
+  - [x] `main.py`, `db.py`, `config_meta.py` (définitions des settings exposés)
+  - [x] `routers/overview.py`, `routers/config.py`, `routers/posts.py`
+  - [x] `templates/` : `base.html`, `overview.html`, `config.html`, `posts.html`
+- [x] **Vue d'ensemble** (`GET /`) : état bot (paused/running), daily count, derniers posts, alertes token
+- [x] **Éditeur config** (`GET /config`) : sections accordéon, widgets adaptés au type, badge "override" vs "défaut"
+  - [x] `POST /config/set` (htmx) : écriture `config_overrides`, validation inline, retour fragment
+  - [x] `POST /config/reset/{key}` (htmx) : suppression override, retour valeur défaut
+  - [x] Bandeau "redémarrage requis" si `config_restart_required` présent
+- [x] **Posts récents** (`GET /posts`) : liste avec statuts
+- [x] `GET /health` : healthcheck 200 OK
+- [x] Settings exposés (tous les groupes du registre)
+- [x] Validations dashboard (`config_meta.py`) : cron via `CronTrigger`, options enum, min/max
 
 ### Phase 10.4 — Infrastructure
 
-- [ ] `docker-compose.yml` : service `ancnouv-dashboard` (port `127.0.0.1:8766:8766`, volume `./data`)
-- [ ] nginx : `location /dashboard/` avec `auth_basic` + `.htpasswd`
-- [ ] `DASHBOARD_USER` / `DASHBOARD_PASSWORD` dans `.env.example`
+- [x] `docker-compose.yml` : service `ancnouv-dashboard` (port `127.0.0.1:8766:8766`, volume `./data`)
+- [ ] nginx : `location /dashboard/` avec `auth_basic` + `.htpasswd` (à configurer sur le VPS)
+- [x] `DASHBOARD_USER` / `DASHBOARD_PASSWORD` dans `.env.example`
 
 ---
 

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}ancnouv{% endblock %} — dashboard</title>
+  <script src="https://unpkg.com/htmx.org@1.9.12" integrity="sha384-ujb1lZYygJmzgSwoxRggbCHcjc0rB2uodhCKSsFGLOZxQ0e/p+X4SY5ep3nFDIT" crossorigin="anonymous"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f5f5f5; color: #222; }
+    nav { background: #1a1a2e; color: #eee; padding: .75rem 1.5rem; display: flex; gap: 1.5rem; align-items: center; }
+    nav a { color: #adf; text-decoration: none; font-size: .95rem; }
+    nav a:hover { text-decoration: underline; }
+    nav .brand { font-weight: 700; color: #fff; font-size: 1.1rem; }
+    main { max-width: 960px; margin: 0 auto; padding: 1.5rem; }
+    .banner { padding: .65rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: .92rem; }
+    .banner-warn { background: #fff3cd; border: 1px solid #ffc107; color: #664d03; }
+    .banner-info { background: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+    .card { background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); padding: 1.25rem 1.5rem; margin-bottom: 1.25rem; }
+    h1 { font-size: 1.4rem; margin: 0 0 1rem; }
+    h2 { font-size: 1.1rem; margin: 0 0 .75rem; color: #333; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th, td { text-align: left; padding: .45rem .6rem; border-bottom: 1px solid #e8e8e8; }
+    th { color: #555; font-weight: 600; }
+    .badge { display: inline-block; padding: .15rem .45rem; border-radius: 4px; font-size: .78rem; font-weight: 600; }
+    .badge-override { background: #fff3cd; color: #856404; }
+    .badge-default { background: #e9ecef; color: #495057; }
+    .badge-ok { background: #d4edda; color: #155724; }
+    .badge-err { background: #f8d7da; color: #721c24; }
+    .status-published { color: #155724; } .status-error { color: #721c24; } .status-pending_approval { color: #856404; }
+    .error { color: #b00; font-size: .85rem; margin-top: .25rem; }
+    details summary { cursor: pointer; font-weight: 600; font-size: 1rem; padding: .5rem 0; }
+    details[open] summary { margin-bottom: .75rem; }
+    .field-row { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid #f0f0f0; }
+    .field-row:last-child { border-bottom: none; margin-bottom: 0; }
+    .field-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: .25rem; }
+    .field-label { font-weight: 500; }
+    .field-desc { font-size: .82rem; color: #666; margin-bottom: .35rem; }
+    .field-actions { display: flex; gap: .5rem; margin-top: .4rem; }
+    input[type=text], input[type=number], select, textarea {
+      padding: .4rem .55rem; border: 1px solid #ccc; border-radius: 5px;
+      font-size: .9rem; width: 100%; max-width: 400px;
+    }
+    textarea { max-width: 400px; height: 80px; resize: vertical; }
+    button { padding: .35rem .8rem; border-radius: 5px; border: none; cursor: pointer; font-size: .88rem; }
+    .btn-save { background: #0d6efd; color: #fff; }
+    .btn-save:hover { background: #0b5ed7; }
+    .btn-reset { background: #e9ecef; color: #333; }
+    .btn-reset:hover { background: #d3d3d3; }
+    .btn-reset:disabled { opacity: .5; cursor: default; }
+    .toggle { position: relative; display: inline-block; width: 42px; height: 24px; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; inset: 0; background: #ccc; border-radius: 24px; transition: .2s; }
+    .toggle-slider::before { content: ""; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .2s; }
+    input:checked + .toggle-slider { background: #0d6efd; }
+    input:checked + .toggle-slider::before { transform: translateX(18px); }
+  </style>
+</head>
+<body>
+<nav>
+  <span class="brand">ancnouv</span>
+  <a href="/">Vue d'ensemble</a>
+  <a href="/config">Configuration</a>
+  <a href="/posts">Posts</a>
+</nav>
+<main>
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

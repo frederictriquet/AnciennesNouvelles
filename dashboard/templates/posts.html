@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Posts{% endblock %}
+{% block content %}
+
+<h1>Posts récents</h1>
+
+<div class="card" style="display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;padding:.85rem 1.25rem;">
+  <form method="get" action="/posts" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;">
+    <label style="font-size:.9rem">Statut :
+      <select name="status" onchange="this.form.submit()" style="max-width:160px">
+        <option value="" {% if not status_filter %}selected{% endif %}>Tous</option>
+        {% for s in ["pending_approval","approved","published","queued","error","rejected","skipped"] %}
+        <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label style="font-size:.9rem">Limite :
+      <input type="number" name="limit" value="{{ limit }}" min="1" max="100" style="width:70px;max-width:70px">
+    </label>
+    <button type="submit" class="btn-save">Filtrer</button>
+  </form>
+</div>
+
+<div class="card">
+  {% if posts %}
+  <table>
+    <tr>
+      <th>#</th><th>Statut</th><th>Source</th><th>Légende</th>
+      <th>Créé</th><th>Publié</th><th>IG</th><th>FB</th><th>Story</th>
+    </tr>
+    {% for p in posts %}
+    <tr>
+      <td>{{ p.id }}</td>
+      <td><span class="status-{{ p.status }}">{{ p.status }}</span></td>
+      <td>{% if p.event_id %}Wiki{% elif p.article_id %}RSS{% else %}—{% endif %}</td>
+      <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ (p.caption or "")[:80] }}</td>
+      <td style="white-space:nowrap">{{ (p.created_at or "")[:16] }}</td>
+      <td style="white-space:nowrap">{{ (p.approved_at or "")[:16] }}</td>
+      <td>
+        {% if p.instagram_post_id %}<span class="badge badge-ok" title="{{ p.instagram_post_id }}">✓</span>
+        {% elif p.instagram_error %}<span class="badge badge-err" title="{{ p.instagram_error }}">✗</span>
+        {% else %}—{% endif %}
+      </td>
+      <td>
+        {% if p.facebook_post_id %}
+          <a href="https://www.facebook.com/{{ p.facebook_post_id.replace('_', '/posts/', 1) }}" target="_blank" class="badge badge-ok" style="text-decoration:none">✓</a>
+        {% elif p.facebook_error %}<span class="badge badge-err" title="{{ p.facebook_error }}">✗</span>
+        {% else %}—{% endif %}
+      </td>
+      <td>{% if p.story_post_id %}<span class="badge badge-ok" title="{{ p.story_post_id }}">✓</span>{% else %}—{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p style="color:#999">Aucun post trouvé.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

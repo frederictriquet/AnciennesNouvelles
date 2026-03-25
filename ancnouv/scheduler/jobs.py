@@ -272,9 +272,9 @@ async def job_fetch_wiki() -> None:
         increment_escalation_level,
         needs_escalation,
     )
-    from ancnouv.scheduler.context import get_config
+    from ancnouv.config_loader import get_effective_config
 
-    config = get_config()
+    config = await get_effective_config()
     today = date.today()
 
     # [TRANSVERSAL-1] Paramètres effectifs avant instanciation (niveau d'escalade courant)
@@ -331,9 +331,9 @@ async def job_fetch_rss() -> None:
     """
     from ancnouv.db.session import get_session
     from ancnouv.fetchers.rss import RssFetcher
-    from ancnouv.scheduler.context import get_config
+    from ancnouv.config_loader import get_effective_config
 
-    config = get_config()
+    config = await get_effective_config()
     try:
         fetcher = RssFetcher()
         articles = await fetcher.fetch_all(config)
@@ -364,9 +364,10 @@ async def _job_generate_inner() -> None:
     from ancnouv.db.session import get_session
     from ancnouv.db.utils import get_scheduler_state
     from ancnouv.generator import generate_post
-    from ancnouv.scheduler.context import get_bot_app, get_config, get_engine
+    from ancnouv.config_loader import get_effective_config
+    from ancnouv.scheduler.context import get_bot_app, get_engine
 
-    config = get_config()
+    config = await get_effective_config()
     bot_app = get_bot_app()
     engine = get_engine()
     today_str = date.today().strftime("%d/%m/%Y")
@@ -492,9 +493,10 @@ async def _job_publish_queued_inner() -> None:
     from ancnouv.publisher.image_hosting import upload_image
     from ancnouv.publisher.instagram import InstagramPublisher
     from ancnouv.publisher.token_manager import TokenManager
-    from ancnouv.scheduler.context import get_bot_app, get_config, get_engine
+    from ancnouv.config_loader import get_effective_config
+    from ancnouv.scheduler.context import get_bot_app, get_engine
 
-    config = get_config()
+    config = await get_effective_config()
     bot_app = get_bot_app()
     engine = get_engine()
     now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -618,9 +620,10 @@ async def _job_check_expired_inner() -> None:
     from ancnouv.bot.notifications import notify_all
     from ancnouv.db.models import Post
     from ancnouv.db.session import get_session
-    from ancnouv.scheduler.context import get_bot_app, get_config
+    from ancnouv.config_loader import get_effective_config
+    from ancnouv.scheduler.context import get_bot_app
 
-    config = get_config()
+    config = await get_effective_config()
     bot_app = get_bot_app()
 
     # SQLite stocke CURRENT_TIMESTAMP en UTC naïf — comparaison avec datetime naïf [SCHEDULER.md]
@@ -701,9 +704,10 @@ async def _job_check_token_inner() -> None:
         days_until_expiry,
         get_alert_threshold,
     )
-    from ancnouv.scheduler.context import get_bot_app, get_config
+    from ancnouv.config_loader import get_effective_config
+    from ancnouv.scheduler.context import get_bot_app
 
-    config = get_config()
+    config = await get_effective_config()
     bot_app = get_bot_app()
 
     # Mapping seuil numérique → niveau lisible [SCHEDULER.md — table scheduler_state]
@@ -808,9 +812,9 @@ async def _job_cleanup_inner() -> None:
 
     from ancnouv.db.models import Post
     from ancnouv.db.session import get_session
-    from ancnouv.scheduler.context import get_config
+    from ancnouv.config_loader import get_effective_config
 
-    config = get_config()
+    config = await get_effective_config()
     cutoff = datetime.now(timezone.utc) - timedelta(days=config.content.image_retention_days)
     cutoff_naive = cutoff.replace(tzinfo=None)
 
