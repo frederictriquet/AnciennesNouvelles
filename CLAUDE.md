@@ -12,6 +12,7 @@ Le projet utilise **uv** avec un virtualenv dans `.venv/` (**Python 3.12 obligat
 uv venv --python 3.12                            # créer le venv (Python 3.12 requis — voir note)
 source .venv/bin/activate                        # activer le venv
 uv pip install -r requirements-dev.txt           # installer toutes les dépendances (prod + test)
+git config core.hooksPath .githooks              # activer les hooks git (pre-push lance les tests)
 ```
 
 > **⚠️ Python 3.14 incompatible avec PTB 20.x (dev local uniquement)** — En Python 3.14,
