@@ -46,7 +46,7 @@ services:
     depends_on:
       - ancnouv
     ports:
-      # Exposé uniquement sur le loopback — nginx proxie avec HTTP Basic Auth [DASHBOARD.md]
+      # Exposé uniquement sur le loopback — accès sécurisé géré par le reverse proxy
       - "127.0.0.1:8766:8766"
     volumes:
       - ./data:/app/data            # DB SQLite partagée (rw — config_overrides uniquement)

@@ -23,7 +23,7 @@ Le dashboard est une interface web légère permettant de modifier la configurat
 
 ```
 VPS
-├── nginx (reverse proxy, HTTP Basic Auth)
+├── reverse proxy (Traefik/nginx — géré hors repo)
 │     ├── / → ancnouv-images:8765
 │     └── /dashboard/ → ancnouv-dashboard:8766
 │
@@ -412,13 +412,7 @@ Affiché si `config_reload_requested = "true"` dans `scheduler_state` (le cache 
 
 ### Authentification
 
-Gérée **exclusivement par nginx** via HTTP Basic Auth — le dashboard ne contient aucun code d'authentification. Le port `8766` n'est exposé que sur `127.0.0.1` (loopback) dans `docker-compose.yml`.
-
-Variables d'environnement à ajouter dans `.env.example` :
-```
-# Générées via : htpasswd -c /etc/nginx/.htpasswd <user>
-# (géré sur le VPS, pas dans Docker)
-```
+Le dashboard ne contient aucun code d'authentification. Le port `8766` n'est exposé que sur `127.0.0.1` (loopback) dans `docker-compose.yml` — l'accès est sécurisé par le reverse proxy (géré hors de ce repo).
 
 ### Ce qui n'est jamais exposé
 
@@ -441,7 +435,7 @@ Il ne peut pas :
 - Accéder aux secrets `.env`
 - Exécuter du code arbitraire
 
-Mitigation : accès uniquement via nginx authentifié, service exposé sur loopback uniquement.
+Mitigation : service exposé sur loopback uniquement, accès sécurisé par le reverse proxy.
 
 ---
 
@@ -515,18 +509,6 @@ ancnouv-dashboard:
     - ancnouv-net
 ```
 
-### Config nginx (bloc à ajouter)
-
-```nginx
-location /dashboard/ {
-    auth_basic           "ancnouv admin";
-    auth_basic_user_file /etc/nginx/.htpasswd;
-    proxy_pass           http://127.0.0.1:8766/;
-    proxy_set_header     Host $host;
-    proxy_set_header     X-Real-IP $remote_addr;
-    proxy_read_timeout   30s;
-}
-```
 
 ### Séquence d'initialisation
 

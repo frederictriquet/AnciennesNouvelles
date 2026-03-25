@@ -561,7 +561,7 @@
 ## Phase 10 — Dashboard de configuration
 
 > Interface web légère pour configurer ancnouv sans éditer les fichiers manuellement.
-> Conteneur séparé (`ancnouv-dashboard`), FastAPI + Jinja2 + htmx, derrière nginx (HTTP Basic Auth).
+> Conteneur séparé (`ancnouv-dashboard`), FastAPI + Jinja2 + htmx, exposé sur loopback.
 
 ### Phase 10.1 — Table `config_overrides` et persistance (ancnouv)
 
@@ -601,8 +601,6 @@
 ### Phase 10.4 — Infrastructure
 
 - [x] `docker-compose.yml` : service `ancnouv-dashboard` (port `127.0.0.1:8766:8766`, volume `./data`)
-- [ ] nginx : `location /dashboard/` avec `auth_basic` + `.htpasswd` (à configurer sur le VPS)
-- [x] `DASHBOARD_USER` / `DASHBOARD_PASSWORD` dans `.env.example`
 
 ---
 
