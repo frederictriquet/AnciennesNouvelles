@@ -61,7 +61,20 @@ jobs:
           cache-to: type=gha,mode=max,scope=ancnouv
 
       - name: Build and push ancnouv-images (serveur d'images)
-        run: |
-          docker build --no-cache -f Dockerfile.images \
-            -t ghcr.io/${{ env.REPO }}-images:latest .
-          docker push ghcr.io/${{ env.REPO }}-images:latest
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          dockerfile: Dockerfile.images
+          push: true
+          tags: ghcr.io/${{ env.REPO }}-images:latest
+          cache-from: type=gha,scope=ancnouv-images
+          cache-to: type=gha,mode=max,scope=ancnouv-images
+
+      - name: Build and push ancnouv-dashboard (Phase 10)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./dashboard
+          push: true
+          tags: ghcr.io/${{ env.REPO }}-dashboard:latest
+          cache-from: type=gha,scope=ancnouv-dashboard
+          cache-to: type=gha,mode=max,scope=ancnouv-dashboard
