@@ -1,0 +1,65 @@
+{# Fragment d'un champ de configuration (htmx swap outerHTML) [DASHBOARD.md — Composants UI] #}
+<div class="field-row" id="field-{{ field.field_id }}">
+  <div class="field-header">
+    <span class="field-label">{{ field.meta.label }}</span>
+    <span class="badge {% if field.source == 'override' %}badge-override{% else %}badge-default{% endif %}">
+      {{ field.source }}{% if field.updated_at %} — {{ field.updated_at[:16] }}{% endif %}
+    </span>
+  </div>
+  {% if field.meta.description %}
+  <div class="field-desc">{{ field.meta.description }}</div>
+  {% endif %}
+
+  <form hx-post="/config/set" hx-swap="outerHTML" hx-target="#field-{{ field.field_id }}">
+    <input type="hidden" name="key" value="{{ field.meta.key }}">
+
+    {% if field.meta.value_type == "bool" %}
+      <label class="toggle" title="Cliquer pour basculer">
+        <input type="checkbox" name="value"
+               value="true"
+               {% if field.display == "True" or field.display == "true" %}checked{% endif %}
+               hx-post="/config/set"
+               hx-swap="outerHTML"
+               hx-target="#field-{{ field.field_id }}"
+               hx-trigger="change"
+               hx-include="closest form">
+        <span class="toggle-slider"></span>
+      </label>
+    {% elif field.meta.validation and field.meta.validation.get("options") %}
+      <select name="value">
+        {% for opt in field.meta.validation["options"] %}
+        <option value="{{ opt }}" {% if field.display == opt %}selected{% endif %}>{{ opt if opt else "(aucun)" }}</option>
+        {% endfor %}
+      </select>
+    {% elif field.meta.value_type in ("list",) %}
+      <textarea name="value">{{ field.display }}</textarea>
+    {% elif field.meta.value_type == "int" %}
+      <input type="number" step="1"
+             {% if field.meta.validation.get("min") is not none %}min="{{ field.meta.validation['min'] }}"{% endif %}
+             {% if field.meta.validation.get("max") is not none %}max="{{ field.meta.validation['max'] }}"{% endif %}
+             name="value" value="{{ field.display }}">
+    {% elif field.meta.value_type == "float" %}
+      <input type="number" step="0.01"
+             {% if field.meta.validation.get("min") is not none %}min="{{ field.meta.validation['min'] }}"{% endif %}
+             {% if field.meta.validation.get("max") is not none %}max="{{ field.meta.validation['max'] }}"{% endif %}
+             name="value" value="{{ field.display }}">
+    {% else %}
+      <input type="text" name="value" value="{{ field.display }}">
+    {% endif %}
+
+    {% if field.error is defined and field.error %}
+    <div class="error">{{ field.error }}</div>
+    {% endif %}
+
+    {% if field.meta.value_type != "bool" %}
+    <div class="field-actions">
+      <button type="submit" class="btn-save">Sauvegarder</button>
+      <button type="button" class="btn-reset"
+              {% if field.source == "défaut" %}disabled{% endif %}
+              hx-post="/config/reset/{{ field.meta.key }}"
+              hx-swap="outerHTML"
+              hx-target="#field-{{ field.field_id }}">Réinitialiser</button>
+    </div>
+    {% endif %}
+  </form>
+</div>

@@ -1,0 +1,151 @@
+docker run --rm ghcr.io/frederictriquet/anciennesnouvelles-images:latest \
+python -c "
+with open('ancnouv/publisher/__init__.py') as f:
+for i, l in enumerate(f.readlines()[:20], 1):
+ print(i, l, end='')
+"
+
+
+docker run --rm -it --network=host -v "$(pwd)/data:/app/data" -v "$(pwd)/config.yml:/app/config.yml:ro" -v "$(pwd)/.env:/app/.env:ro" -v "$(pwd)/assets:/app/assets" "$(docker inspect ancnouv --format='{{.Config.Image}}')" python -m ancnouv auth meta
+
+
+
+docker run --rm -it  --network=host -v "$(pwd)/data:/app/data" -v "$(pwd)/config.yml:/app/config.yml:ro" -v "$(pwd)/.env:/app/.env:ro" -v "$(pwd)/assets:/app/assets" "$(docker inspect ancnouv --format='{{.Config.Image}}')" python -m ancnouv auth meta
+
+
+
+docker exec ancnouv python3 -c "
+import sqlite3
+c = sqlite3.connect('/app/data/ancnouv.db')
+c.execute('CREATE TABLE IF NOT EXISTS alembic_version (version_num VARCHAR(32) NOT NULL CONSTRAINT alembic_version_pkc PRIMARY KEY)')
+c.execute('DELETE FROM alembic_version')
+c.execute(\"INSERT INTO alembic_version VALUES ('0001')\")
+c.commit()
+print('Stamped:', c.execute('SELECT * FROM alembic_version').fetchall())
+c.close()
+"
+
+
+
+docker exec ancnouv python3 -c "import sqlite3; c=sqlite3.connect('/app/data/ancnouv.db');print(c.execute('SELECT * FROM alembic_version').fetchall()); print([r[1] for r in c.execute('PRAGMA table_info(events)').fetchall()])"
+
+
+Mais pour le post déjà rejeté (avec l'événement bloqué) : tu peux le débloquer manuellement.
+  Sur le VPS :
+docker exec ancnouv python3 -c "
+import sqlite3
+c = sqlite3.connect('/app/data/ancnouv.db')
+# Voir les événements bloqués
+rows = c.execute(\"SELECT id, year, month, day, description FROM events WHERE status='blocked'\").fetchall()
+for r in rows: print(r)
+c.close()
+"
+
+Si tu veux débloquer un événement spécifique (par ID) :
+docker exec ancnouv python3 -c "
+import sqlite3
+c = sqlite3.connect('/app/data/ancnouv.db')
+c.execute(\"UPDATE events SET status='available' WHERE id=?\", (ID_ICI,))
+c.commit()
+print('débloquer', c.changes)
+c.close()
+"
+
+
+
+
+
+docker exec ancnouv python3 -c "
+import sqlite3
+c = sqlite3.connect('/app/data/ancnouv.db')
+# Voir les événements bloqués
+rows = c.execute(\"DELETE FROM events;\").fetchall()
+for r in rows: print(r)
+c.close()
+"
+
+docker exec -i ancnouv python3 - <<'EOF'
+#!/usr/bin/env python3
+"""Re-fetche tous les événements Wikipedia pour les 366 jours de l'année.
+
+À utiliser après avoir vidé la table events :
+    sqlite3 data/ancnouv.db "DELETE FROM events;"
+    python scripts/refetch_all_events.py
+"""
+from __future__ import annotations
+
+import asyncio
+import os
+import sys
+from datetime import date, timedelta
+from pathlib import Path
+
+# Permet d'exécuter depuis la racine du projet sans install
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+
+async def main() -> int:
+    from ancnouv.config import Config
+    from ancnouv.db.session import get_session, init_db
+    from ancnouv.fetchers.wikipedia import WikipediaFetcher
+
+    config = Config()
+    db_path = (
+        os.environ.get("ANCNOUV_DB_PATH", "")
+        or f"{config.data_dir}/{config.database.filename}"
+    )
+    init_db(db_path)
+
+    fetcher = WikipediaFetcher(config)
+
+    # Année bissextile pour couvrir les 366 jours (including 29/02)
+    base = date(2024, 1, 1)
+    total = 0
+    errors = 0
+
+    for i in range(366):
+        d = base + timedelta(days=i)
+        try:
+            async with get_session() as session:
+                items = await fetcher.fetch(d)
+                n = await fetcher.store(items, session)
+                total += n
+                print(f"{d.strftime('%d/%m')} : {n} nouveaux ({len(items)} reçus)")
+        except Exception as exc:
+            print(f"{d.strftime('%d/%m')} erreur : {exc}", file=sys.stderr)
+            errors += 1
+
+    print(f"\nTerminé : {total} événements insérés, {errors} erreurs.")
+    return 0 if errors == 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(asyncio.run(main()))
+"
+
+
+
+
+docker exec -i ancnouv python - << 'EOF'
+import asyncio, os, sys
+from datetime import date, timedelta
+from ancnouv.config import Config
+from ancnouv.db.session import get_session, init_db
+from ancnouv.fetchers.wikipedia import WikipediaFetcher 
+async def main():
+    config = Config()
+    db_path = os.environ.get("ANCNOUV_DB_PATH", "") or f"{config.data_dir}/{config.database.filename}"
+    init_db(db_path)
+    fetcher = WikipediaFetcher(config)
+    base = date(2024, 1, 1)
+    total = 0
+    for i in range(366):
+        d = base + timedelta(days=i)
+        async with get_session() as session:
+            items = await fetcher.fetch(d)
+            n = await fetcher.store(items, session)
+            total += n
+            print(f"{d.strftime('%d/%m')}: {n} ({len(items)} reçus)")
+    print(f"Total: {total}")
+asyncio.run(main())
+EOF

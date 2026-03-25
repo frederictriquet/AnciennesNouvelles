@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Vue d'ensemble{% endblock %}
+{% block content %}
+
+{% if restart_required %}
+<div class="banner banner-warn">
+  ⚠ Des paramètres modifiés nécessitent un redémarrage d'ancnouv pour être pris en compte.
+  Commande : <code>docker compose restart ancnouv</code>
+</div>
+{% endif %}
+{% if reload_pending %}
+<div class="banner banner-info">
+  ℹ Modifications en attente de prise en compte par ancnouv (≤ 30s).
+</div>
+{% endif %}
+
+<h1>Vue d'ensemble</h1>
+
+<div class="card">
+  <h2>État du scheduler</h2>
+  <table>
+    <tr><th>Scheduler</th><td>{% if paused %}<span class="badge badge-err">En pause</span>{% else %}<span class="badge badge-ok">Actif</span>{% endif %}</td></tr>
+    <tr><th>Publications</th><td>{% if suspended %}<span class="badge badge-err">Suspendues</span>{% else %}<span class="badge badge-ok">Actives</span>{% endif %}</td></tr>
+    <tr><th>Posts aujourd'hui</th><td>{{ daily_count }}</td></tr>
+    <tr><th>Niveau d'escalade</th><td>{{ escalation }}</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Tokens Meta</h2>
+  <table>
+    <tr><th>Type</th><th>Expiration</th></tr>
+    {% for kind, days in token_days.items() %}
+    <tr>
+      <td>{{ kind }}</td>
+      <td>
+        {% if days is none %}
+          <span class="badge badge-ok">Permanent</span>
+        {% elif days <= 7 %}
+          <span class="badge badge-err">{{ days }}j restants</span>
+        {% elif days <= 30 %}
+          <span class="badge banner-warn">{{ days }}j restants</span>
+        {% else %}
+          {{ days }}j restants
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="2" style="color:#999">Aucun token enregistré</td></tr>
+    {% endfor %}
+  </table>
+</div>
+
+<div class="card">
+  <h2>5 derniers posts</h2>
+  {% if posts %}
+  <table>
+    <tr><th>#</th><th>Statut</th><th>Légende</th><th>Créé</th><th>IG</th><th>FB</th></tr>
+    {% for p in posts %}
+    <tr>
+      <td>{{ p.id }}</td>
+      <td><span class="status-{{ p.status }}">{{ p.status }}</span></td>
+      <td>{{ (p.caption or "")[:60] }}{% if (p.caption or "") | length > 60 %}…{% endif %}</td>
+      <td>{{ (p.created_at or "")[:16] }}</td>
+      <td>{% if p.instagram_post_id %}<span class="badge badge-ok">✓</span>{% elif p.instagram_error %}<span class="badge badge-err" title="{{ p.instagram_error }}">✗</span>{% else %}—{% endif %}</td>
+      <td>{% if p.facebook_post_id %}<span class="badge badge-ok">✓</span>{% elif p.facebook_error %}<span class="badge badge-err" title="{{ p.facebook_error }}">✗</span>{% else %}—{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}
+  <p style="color:#999">Aucun post.</p>
+  {% endif %}
+</div>
+
+{% endblock %}

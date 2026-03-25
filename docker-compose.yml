@@ -38,6 +38,25 @@ services:
     networks:
       - ancnouv-net
 
+  ancnouv-dashboard:
+    build:
+      context: ./dashboard
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - ancnouv
+    ports:
+      # Exposé uniquement sur le loopback — nginx proxie avec HTTP Basic Auth [DASHBOARD.md]
+      - "127.0.0.1:8766:8766"
+    volumes:
+      - ./data:/app/data            # DB SQLite partagée (rw — config_overrides uniquement)
+      - ./config.yml:/app/config.yml:ro
+    environment:
+      - DB_PATH=/app/data/ancnouv.db
+      - TZ=Europe/Paris
+    networks:
+      - ancnouv-net
+
 networks:
   ancnouv-net:
     driver: bridge

@@ -1,0 +1,6 @@
+#!/bin/sh
+# Hook pre-push — lance les tests avant chaque push
+# Activé via : git config core.hooksPath .githooks
+set -e
+echo "pre-push: lancement des tests..."
+.venv/bin/pytest --cov=ancnouv --cov-fail-under=80 -q
