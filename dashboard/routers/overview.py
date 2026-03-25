@@ -39,8 +39,7 @@ async def overview(request: Request, db: AsyncSession = Depends(get_db)):
             except Exception:
                 token_days[kind] = None
 
-    return templates.TemplateResponse("overview.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "overview.html", {
         "paused": paused,
         "suspended": suspended,
         "daily_count": daily_count,

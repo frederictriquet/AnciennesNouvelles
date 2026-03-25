@@ -89,8 +89,7 @@ async def config_page(request: Request, db: AsyncSession = Depends(get_db)):
         if section_fields:
             sections_data.append({"key": section_key, "label": section_label, "fields": section_fields})
 
-    return templates.TemplateResponse("config.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "config.html", {
         "sections": sections_data,
         "restart_required": restart_required,
         "reload_pending": reload_pending,
@@ -173,10 +172,7 @@ def _field_fragment(
     error: str | None,
 ) -> HTMLResponse:
     """Retourne le fragment HTML d'un champ (htmx swap)."""
-    from fastapi.templating import Jinja2Templates
-    t = Jinja2Templates(directory="templates")
-    content = t.TemplateResponse("_field.html", {
-        "request": request,
+    content = templates.TemplateResponse(request, "_field.html", {
         "field": {
             "meta": meta,
             "display": display_value,

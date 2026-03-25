@@ -25,6 +25,8 @@
                hx-include="closest form">
         <span class="toggle-slider"></span>
       </label>
+      {# Fallback : non soumis si la checkbox est décochée — FastAPI prend le premier value #}
+      <input type="hidden" name="value" value="false">
     {% elif field.meta.validation and field.meta.validation.get("options") %}
       <select name="value">
         {% for opt in field.meta.validation["options"] %}

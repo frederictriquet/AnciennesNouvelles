@@ -22,8 +22,7 @@ async def posts_page(
     if limit > 100:
         limit = 100
     posts = await get_recent_posts(db, limit=limit, status=status or None)
-    return templates.TemplateResponse("posts.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "posts.html", {
         "posts": posts,
         "limit": limit,
         "status_filter": status,
