@@ -39,6 +39,7 @@ def create_scheduler(config: Config) -> "AsyncIOScheduler":
         job_check_expired,
         job_check_token,
         job_cleanup,
+        job_fetch_gallica,
         job_fetch_rss,
         job_fetch_wiki,
         job_generate,
@@ -74,6 +75,18 @@ def create_scheduler(config: Config) -> "AsyncIOScheduler":
         jobstore="default",
         replace_existing=True,
     )
+
+    # JOB-8 — collecte Gallica — cron 0 3 * * *, persistant, enregistré si gallica.enabled [SPEC-9.3]
+    if config.gallica.enabled:
+        scheduler.add_job(
+            job_fetch_gallica,
+            "cron",
+            hour=3,
+            minute=30,
+            id="job_fetch_gallica",
+            jobstore="default",
+            replace_existing=True,
+        )
 
     # JOB-2 — collecte RSS — interval 6h, persistant, enregistré si rss.enabled [ARCH-05]
     # [SC-C1] Sans start_date : déclenchement immédiat si délai > misfire_grace_time (intentionnel).

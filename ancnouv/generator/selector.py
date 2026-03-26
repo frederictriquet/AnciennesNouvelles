@@ -1,16 +1,20 @@
-# Sélecteur de contenu et stratégie d'escalade — Phase 2/3 [DS-1.4b, DS-1.4c, TRANSVERSAL-1]
+# Sélecteur de contenu et stratégie d'escalade — Phase 2/3/11 [DS-1.4b, DS-1.4c, TRANSVERSAL-1, SPEC-9.3]
 from __future__ import annotations
 
 import logging
 from datetime import date, datetime, timedelta, timezone
+from typing import TYPE_CHECKING
 
-from sqlalchemy import text
+from sqlalchemy import func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ancnouv.config import Config
 from ancnouv.db.models import Event, RssArticle
 from ancnouv.db.utils import get_scheduler_state, set_scheduler_state
 from ancnouv.fetchers.base import EffectiveQueryParams
+
+if TYPE_CHECKING:
+    from ancnouv.db.models import GallicaArticle
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +163,34 @@ async def select_article(
     if row is None:
         return None
     return await session.get(RssArticle, row[0])
+
+
+async def select_gallica_article(
+    session: AsyncSession,
+    config: Config,
+    params: dict,
+) -> "GallicaArticle | None":
+    """Sélectionne un article Gallica disponible [SPEC-9.3, DS-3].
+
+    Critères de sélection (ordre de priorité) :
+    1. status = 'available'
+    2. Non encore publié (published_count = 0)
+    3. Ordre aléatoire pour la variété
+    """
+    from sqlalchemy import select as sa_select
+
+    from ancnouv.db.models import GallicaArticle
+
+    query = (
+        sa_select(GallicaArticle)
+        .where(GallicaArticle.status == "available")
+        .where(GallicaArticle.published_count == 0)
+        .order_by(func.random())
+        .limit(1)
+    )
+
+    result = await session.execute(query)
+    return result.scalar_one_or_none()
 
 
 async def needs_escalation(session: AsyncSession, config: Config) -> bool:

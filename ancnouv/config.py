@@ -113,6 +113,13 @@ class FacebookConfig(BaseSettings):
     # [CONF-11] api_version partagé depuis InstagramConfig
 
 
+class ThreadsConfig(BaseSettings):
+    """Configuration Threads. [SPEC-9.1]"""
+    enabled: bool = False
+    user_id: str = ""
+    api_version: str = "v1.0"
+
+
 class TelegramConfig(BaseSettings):
     # [CONF-C4] : [] intentionnellement invalide — force la configuration explicite
     authorized_user_ids: list[int] = []
@@ -123,6 +130,21 @@ class StoriesConfig(BaseSettings):
     """Configuration des Stories Instagram + Facebook. [SPEC-7, RF-7.3.5]"""
     enabled: bool = False
     max_text_chars: int = Field(default=400, ge=50, le=1000)
+
+
+class GallicaConfig(BaseSettings):
+    """Configuration BnF Gallica (Mode C). [SPEC-9.3]"""
+    enabled: bool = False
+    max_results_per_year: int = Field(default=3, ge=1, le=10)
+    mix_ratio: float = Field(default=0.1, ge=0.0, le=1.0)
+
+
+class ReelsConfig(BaseSettings):
+    """Configuration Reels Instagram. [SPEC-8]"""
+    enabled: bool = False
+    duration_seconds: int = Field(default=15, ge=10, le=30)
+    audio_file: str = ""
+    fps: int = Field(default=30, ge=24, le=60)
 
 
 # Placeholder évitant une liste de rejet dans validate_image_hosting
@@ -158,6 +180,9 @@ class Config(BaseSettings):
     facebook: FacebookConfig = FacebookConfig()
     telegram: TelegramConfig = TelegramConfig()
     stories: StoriesConfig = StoriesConfig()
+    threads: ThreadsConfig = ThreadsConfig()
+    gallica: GallicaConfig = GallicaConfig()
+    reels: ReelsConfig = ReelsConfig()
 
     @classmethod
     def settings_customise_sources(cls, settings_cls, **kwargs):
@@ -181,7 +206,7 @@ class Config(BaseSettings):
     @model_validator(mode="after")
     def validate_image_hosting(self) -> "Config":
         # [CONF-09] Vérification public_base_url uniquement si une plateforme est activée
-        if self.instagram.enabled or self.facebook.enabled:
+        if self.instagram.enabled or self.facebook.enabled or self.threads.enabled:
             url = self.image_hosting.public_base_url
             if not url:
                 raise ValueError(
@@ -228,6 +253,15 @@ class Config(BaseSettings):
         if self.facebook.enabled and not self.facebook.page_id:
             raise ValueError(
                 "facebook.page_id est vide. Lancer : python -m ancnouv auth meta"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_threads(self) -> "Config":
+        # [SPEC-9.1]
+        if self.threads.enabled and not self.threads.user_id:
+            raise ValueError(
+                "threads.user_id est vide. Renseigner l'identifiant utilisateur Threads."
             )
         return self
 

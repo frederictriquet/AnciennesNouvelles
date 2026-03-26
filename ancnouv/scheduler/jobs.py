@@ -194,15 +194,19 @@ async def recover_pending_posts(
                 api_version=config.instagram.api_version,
             )
             ig_pub = (
-                InstagramPublisher(token_mgr, config)
-                if config.instagram.enabled and ig_needs_publish
-                else None
+                InstagramPublisher(config.instagram.user_id, token_mgr, config.instagram.api_version)
+                if config.instagram.enabled and ig_needs_publish else None
             )
             fb_pub = (
-                FacebookPublisher(token_mgr, config)
-                if config.facebook.enabled and fb_needs_publish
-                else None
+                FacebookPublisher(config.facebook.page_id, token_mgr, config.instagram.api_version)
+                if config.facebook.enabled and fb_needs_publish else None
             )
+            threads_pub = None
+            if config.threads.enabled and post.threads_post_id is None:
+                from ancnouv.publisher.threads import ThreadsPublisher
+                threads_pub = ThreadsPublisher(
+                    config.threads.user_id, token_mgr, config.threads.api_version
+                )
 
             async with _get_session() as pub_session:
                 pub_post = await pub_session.get(_Post, post.id)
@@ -216,6 +220,7 @@ async def recover_pending_posts(
                     session=pub_session,
                     caption=pub_post.caption,
                     max_daily_posts=config.instagram.max_daily_posts,
+                    threads_publisher=threads_pub,
                 )
         except Exception as exc:
             logger.error("recover: republication post %d échouée : %s", post.id, exc)
@@ -436,13 +441,36 @@ async def _job_generate_inner() -> None:
         meta_app_secret=config.meta_app_secret,
         api_version=config.instagram.api_version,
     )
-    ig_pub = InstagramPublisher(token_mgr, config) if config.instagram.enabled else None
-    fb_pub = FacebookPublisher(token_mgr, config) if config.facebook.enabled else None
+    ig_pub = (
+        InstagramPublisher(config.instagram.user_id, token_mgr, config.instagram.api_version)
+        if config.instagram.enabled else None
+    )
+    fb_pub = (
+        FacebookPublisher(config.facebook.page_id, token_mgr, config.instagram.api_version)
+        if config.facebook.enabled else None
+    )
+    threads_pub = None
+    if config.threads.enabled:
+        from ancnouv.publisher.threads import ThreadsPublisher
+        threads_pub = ThreadsPublisher(config.threads.user_id, token_mgr, config.threads.api_version)
 
     try:
         if not post.image_path:
             raise ValueError(f"Post {post.id} sans image_path")
         image_url = await upload_image(Path(post.image_path), config)
+
+        # Upload vidéo Reel si disponible [SPEC-8, non-bloquant]
+        reel_url: str | None = None
+        reel_pub = None
+        if config.reels.enabled and post.reel_video_path:
+            try:
+                reel_url = await upload_image(Path(post.reel_video_path), config)
+                from ancnouv.publisher.reels import InstagramReelsPublisher
+                reel_pub = InstagramReelsPublisher(
+                    config.instagram.user_id, token_mgr, config.instagram.api_version
+                )
+            except Exception as reel_exc:
+                logger.warning("auto_publish : upload Reel échoué (non-bloquant) : %s", reel_exc)
 
         async with _get_session() as pub_session:
             pub_post = await pub_session.get(Post, post.id)
@@ -458,6 +486,9 @@ async def _job_generate_inner() -> None:
                 session=pub_session,
                 caption=pub_post.caption,
                 max_daily_posts=config.instagram.max_daily_posts,
+                threads_publisher=threads_pub,
+                reel_video_url=reel_url,
+                reel_publisher=reel_pub,
             )
         await notify_all(bot_app.bot, config, f"✅ Post #{post.id} publié automatiquement.")
     except Exception as exc:
@@ -529,6 +560,7 @@ async def _job_publish_queued_inner() -> None:
 
     ig_publisher = None
     fb_publisher = None
+    threads_publisher = None
     if config.instagram.enabled:
         ig_publisher = InstagramPublisher(
             config.instagram.user_id, token_manager, config.instagram.api_version
@@ -536,6 +568,11 @@ async def _job_publish_queued_inner() -> None:
     if config.facebook.enabled:
         fb_publisher = FacebookPublisher(
             config.facebook.page_id, token_manager, config.instagram.api_version
+        )
+    if config.threads.enabled:
+        from ancnouv.publisher.threads import ThreadsPublisher
+        threads_publisher = ThreadsPublisher(
+            config.threads.user_id, token_manager, config.threads.api_version
         )
 
     for post_id in post_ids:
@@ -582,9 +619,25 @@ async def _job_publish_queued_inner() -> None:
                     except ImageHostingError as exc:
                         logger.warning("JOB-7 upload Story échoué (non-bloquant) : %s", exc)
 
+                # Upload vidéo Reel si disponible [SPEC-8, non-bloquant]
+                reel_video_url: str | None = None
+                reel_pub = None
+                if config.reels.enabled and post.reel_video_path:
+                    try:
+                        reel_video_url = await upload_image(Path(post.reel_video_path), config)
+                        from ancnouv.publisher.reels import InstagramReelsPublisher
+                        reel_pub = InstagramReelsPublisher(
+                            config.instagram.user_id, token_manager, config.instagram.api_version
+                        )
+                    except ImageHostingError as exc:
+                        logger.warning("JOB-7 upload Reel vidéo échoué (non-bloquant) : %s", exc)
+
                 await publish_to_all_platforms(
                     post, post.image_public_url, ig_publisher, fb_publisher, session,
                     story_image_url=story_image_url,
+                    threads_publisher=threads_publisher,
+                    reel_video_url=reel_video_url,
+                    reel_publisher=reel_pub,
                 )
                 await notify_all(bot_app.bot, config, f"File d'attente : post #{post_id} publié.")
             except Exception as exc:
@@ -860,3 +913,39 @@ async def _job_cleanup_inner() -> None:
         logger.info(
             "job_cleanup : %d fichier(s) supprimé(s), %.1f Mo libérés", cleaned, freed_mb
         )
+
+
+# ─── JOB-8 : Collecte BnF Gallica ──────────────────────────────────────────────
+
+async def job_fetch_gallica() -> None:
+    """Collecte et stocke les fascicules BnF Gallica pour le jour courant. [SPEC-9.3]"""
+    try:
+        await _job_fetch_gallica_inner()
+    except Exception as exc:
+        logger.error("JOB-8 erreur : %s", exc, exc_info=True)
+
+
+async def _job_fetch_gallica_inner() -> None:
+    from datetime import date
+
+    from ancnouv.db.session import get_session
+    from ancnouv.fetchers.gallica import GallicaFetcher
+    from ancnouv.scheduler.context import get_config
+
+    config = get_config()
+
+    if not config.gallica.enabled:
+        return
+
+    today = date.today()
+    fetcher = GallicaFetcher(max_results=config.gallica.max_results_per_year * 5)
+
+    items = await fetcher.fetch(today.month, today.day)
+    if not items:
+        logger.debug("JOB-8 : aucun fascicule Gallica trouvé pour le %02d-%02d.", today.month, today.day)
+        return
+
+    async with get_session() as session:
+        count = await fetcher.store(items, session)
+
+    logger.info("JOB-8 : %d fascicule(s) Gallica stocké(s) pour le %02d-%02d.", count, today.month, today.day)

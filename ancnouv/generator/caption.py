@@ -1,10 +1,14 @@
-# Formatage de légendes Instagram — Phase 3 [SPEC-2.3, docs/IMAGE_GENERATION.md]
+# Formatage de légendes Instagram — Phase 3/11 [SPEC-2.3, SPEC-9.3, docs/IMAGE_GENERATION.md]
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+from typing import TYPE_CHECKING
 
 from ancnouv.config import Config
 from ancnouv.db.models import Event, RssArticle
+
+if TYPE_CHECKING:
+    from ancnouv.db.models import GallicaArticle
 
 _FR_MONTHS = [
     "", "janvier", "février", "mars", "avril", "mai", "juin",
@@ -92,6 +96,46 @@ def format_caption(event: Event, config: Config) -> str:
 
     hashtags_str = " ".join(config.caption.hashtags)
     caption = f"{body}{config.caption.hashtags_separator}{hashtags_str}"
+
+    # [IMG-14] Vérification globale ≤ 2200 chars
+    if len(caption) > _MAX_CAPTION_CHARS:
+        caption = caption[:_MAX_CAPTION_CHARS]
+
+    return caption
+
+
+def format_caption_gallica(article: "GallicaArticle", config: Config) -> str:
+    """Légende Instagram Mode C (BnF Gallica). [SPEC-9.3]
+
+    Format : titre — description tronquée — date publication — source BnF Gallica — hashtags.
+    """
+    lines: list[str] = []
+
+    # Titre de l'article
+    lines.append(article.title)
+
+    # Description si disponible (tronquée)
+    if article.description:
+        desc = truncate_caption(article.description, max_chars=300)
+        lines.append(desc)
+
+    # Date de publication historique
+    if hasattr(article.date_published, "strftime"):
+        month_name = _FR_MONTHS[article.date_published.month]
+        date_str = f"{article.date_published.day} {month_name} {article.date_published.year}"
+    else:
+        date_str = str(article.date_published)
+    lines.append(f"Publié le {date_str}")
+
+    # Attribution source
+    if article.source_name:
+        lines.append(f"Source : BnF Gallica — {article.source_name}")
+    else:
+        lines.append("Source : BnF Gallica")
+
+    hashtags_str = " ".join(config.caption.hashtags)
+    separator = config.caption.hashtags_separator
+    caption = separator.join(["\n".join(lines), hashtags_str])
 
     # [IMG-14] Vérification globale ≤ 2200 chars
     if len(caption) > _MAX_CAPTION_CHARS:

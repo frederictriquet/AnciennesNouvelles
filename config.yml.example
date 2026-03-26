@@ -69,6 +69,22 @@ facebook:
 stories:
   enabled: false
 
+threads:
+  enabled: false
+  user_id: ""
+  api_version: "v1.0"
+
+gallica:
+  enabled: false
+  max_results_per_year: 3
+  mix_ratio: 0.1
+
+reels:
+  enabled: false
+  duration_seconds: 15
+  fps: 30
+  audio_file: ""
+
 telegram:
   authorized_user_ids:
     - 123456789

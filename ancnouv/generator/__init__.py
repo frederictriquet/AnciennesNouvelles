@@ -10,7 +10,7 @@ from uuid import uuid4
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ancnouv.db.models import Event, Post, RssArticle
+from ancnouv.db.models import Event, GallicaArticle, Post, RssArticle
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +36,7 @@ async def generate_post(session: AsyncSession) -> Post | None:
     """
     from ancnouv.generator.caption import format_caption, format_caption_rss
     from ancnouv.generator.image import fetch_thumbnail, generate_image, generate_story_image
-    from ancnouv.generator.selector import get_effective_query_params, select_article, select_event
+    from ancnouv.generator.selector import get_effective_query_params, select_article, select_event, select_gallica_article
     from ancnouv.scheduler.context import get_config
 
     config = get_config()
@@ -54,20 +54,27 @@ async def generate_post(session: AsyncSession) -> Post | None:
 
     effective_params = await get_effective_query_params(session, config)
 
-    # [DS-3] Sélection hybride A+B selon mix_ratio
+    # [DS-3] Sélection hybride A+B+C selon mix_ratio
     source = None
     today = date.today()
 
-    if config.content.rss.enabled and random.random() < config.content.mix_ratio:
-        # Mode B d'abord, fallback A
+    # Tirage aléatoire pour Mode C (Gallica)
+    if config.gallica.enabled and random.random() < config.gallica.mix_ratio:
+        source = await select_gallica_article(session, config, {})
+
+    # Tirage aléatoire pour Mode B (RSS) si Mode C non sélectionné ou vide
+    if source is None and config.content.rss.enabled and random.random() < config.content.mix_ratio:
         source = await select_article(session, config, effective_params)
-        if source is None:
-            source = await select_event(session, today, effective_params)
-    else:
-        # Mode A d'abord, fallback B si RSS activé
+
+    # Mode A (Wikipedia) par défaut
+    if source is None:
         source = await select_event(session, today, effective_params)
-        if source is None and config.content.rss.enabled:
-            source = await select_article(session, config, effective_params)
+
+    # Fallback : B si A vide, C si A+B vides [DS-3]
+    if source is None and config.content.rss.enabled:
+        source = await select_article(session, config, effective_params)
+    if source is None and config.gallica.enabled:
+        source = await select_gallica_article(session, config, {})
 
     if source is None:
         logger.info("Aucune source disponible pour generate_post — retourne None")
@@ -89,9 +96,35 @@ async def generate_post(session: AsyncSession) -> Post | None:
         except Exception as exc:
             logger.warning("Génération Story échouée (non-bloquant) : %s", exc)
 
+    # Génération vidéo Reel si activé [SPEC-8, RF-8.3]
+    reel_video_path: str | None = None
+    if config.reels.enabled:
+        try:
+            from ancnouv.generator.video import generate_reel_video, get_reel_output_path
+            reel_out = get_reel_output_path(output_path)
+            audio: Path | None = None
+            if config.reels.audio_file:
+                audio = Path(config.reels.audio_file)
+                if not audio.exists():
+                    logger.warning("Fichier audio Reel introuvable : %s — sans audio", audio)
+                    audio = None
+            await generate_reel_video(
+                output_path,
+                reel_out,
+                audio_path=audio,
+                duration_seconds=config.reels.duration_seconds,
+                fps=config.reels.fps,
+            )
+            reel_video_path = str(reel_out)
+        except Exception as exc:
+            logger.warning("Génération Reel échouée (non-bloquant) : %s", exc)
+
     # Formatage légende
     if isinstance(source, RssArticle):
         caption = format_caption_rss(source, config)
+    elif isinstance(source, GallicaArticle):
+        from ancnouv.generator.caption import format_caption_gallica
+        caption = format_caption_gallica(source, config)
     else:
         caption = format_caption(source, config)
 
@@ -100,9 +133,11 @@ async def generate_post(session: AsyncSession) -> Post | None:
     post = Post(
         event_id=source.id if isinstance(source, Event) else None,
         article_id=source.id if isinstance(source, RssArticle) else None,
+        gallica_id=source.id if isinstance(source, GallicaArticle) else None,
         caption=caption,
         image_path=str(output_path),
         story_image_path=story_image_path,
+        reel_video_path=reel_video_path,
         status="pending_approval",
     )
     session.add(post)
@@ -114,7 +149,7 @@ async def generate_post(session: AsyncSession) -> Post | None:
     logger.info(
         "Post généré : id=%s source=%s source_id=%s",
         post.id,
-        "rss" if isinstance(source, RssArticle) else "event",
+        "rss" if isinstance(source, RssArticle) else "gallica" if isinstance(source, GallicaArticle) else "event",
         source.id,
     )
     return post

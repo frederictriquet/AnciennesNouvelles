@@ -211,6 +211,11 @@ def mock_config():
     config.data_dir = "data"
     config.meta_app_id = "test_meta_app_id"
     config.meta_app_secret = "test_meta_app_secret"
+    config.gallica.enabled = False
+    config.gallica.mix_ratio = 0.1
+    config.reels.enabled = False
+    config.threads.enabled = False
+    config.stories.enabled = False
     return config
 
 

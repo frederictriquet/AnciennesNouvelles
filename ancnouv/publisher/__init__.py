@@ -1,4 +1,4 @@
-# Publication Meta (Instagram + Facebook) — Phase 4 [SPEC-3.4, docs/INSTAGRAM_API.md]
+# Publication Meta (Instagram + Facebook) + Threads + Reels — Phase 4/11 [SPEC-3.4, SPEC-9.1, SPEC-8, docs/INSTAGRAM_API.md]
 # [D-02] Pas d'imports top-level InstagramPublisher/FacebookPublisher.
 from __future__ import annotations
 
@@ -14,6 +14,8 @@ if TYPE_CHECKING:
     from ancnouv.db.models import Post
     from ancnouv.publisher.facebook import FacebookPublisher
     from ancnouv.publisher.instagram import InstagramPublisher
+    from ancnouv.publisher.threads import ThreadsPublisher
+    from ancnouv.publisher.reels import InstagramReelsPublisher
 
 logger = logging.getLogger(__name__)
 
@@ -70,17 +72,21 @@ async def publish_to_all_platforms(
     caption: str | None = None,
     max_daily_posts: int = 25,
     story_image_url: str | None = None,
+    threads_publisher: "ThreadsPublisher | None" = None,
+    reel_video_url: str | None = None,
+    reel_publisher: "InstagramReelsPublisher | None" = None,
 ) -> dict:
-    """Publie sur Instagram et/ou Facebook en parallèle [IG-4, SPEC-3.4.4].
+    """Publie sur Instagram, Facebook, Threads et/ou Reels en parallèle [IG-4, SPEC-3.4.4, SPEC-9.1, SPEC-8].
 
     session : utilisée UNIQUEMENT pour les opérations sur post (status, erreurs,
               published_count). Les publishers créent leurs propres sessions [IG-4].
 
-    Retourne {"instagram": post_id | None, "facebook": post_id | None}.
+    Retourne {"instagram": post_id | None, "facebook": post_id | None, "threads": post_id | None, "reel": post_id | None}.
     None = plateforme désactivée ou échec.
 
-    Si les deux plateformes sont désactivées : post marqué 'published' intentionnellement
+    Si les deux plateformes feed sont désactivées : post marqué 'published' intentionnellement
     (approbation Telegram valide le contenu) [IG-4].
+    Threads et Reel sont non-bloquants (n'affectent pas post.status feed).
     """
     from ancnouv.db.session import get_session
     from ancnouv.db.utils import get_scheduler_state
@@ -112,6 +118,14 @@ async def publish_to_all_platforms(
         async with get_session() as fb_session:
             return await fb_publisher.publish(post, image_url, caption_to_use, fb_session)  # type: ignore[union-attr]
 
+    async def threads_task() -> str:
+        async with get_session() as th_session:
+            return await threads_publisher.publish(post, image_url, caption_to_use, th_session)  # type: ignore[union-attr]
+
+    async def reel_task() -> str:
+        async with get_session() as reel_session:
+            return await reel_publisher.publish(post, reel_video_url, caption_to_use, reel_session)  # type: ignore[union-attr]
+
     tasks = []
     task_labels = []
     if ig_publisher is not None:
@@ -120,6 +134,12 @@ async def publish_to_all_platforms(
     if fb_publisher is not None:
         tasks.append(fb_task())
         task_labels.append("facebook")
+    if threads_publisher is not None:
+        tasks.append(threads_task())
+        task_labels.append("threads")
+    if reel_publisher is not None and reel_video_url is not None:
+        tasks.append(reel_task())
+        task_labels.append("reel")
 
     logger.info("Publication post %d sur : %s", post.id, ", ".join(task_labels) or "aucune plateforme")
 
@@ -132,24 +152,42 @@ async def publish_to_all_platforms(
     # Mapper les résultats [IG-4, SPEC-3.4.6]
     ig_result: str | None = None
     fb_result: str | None = None
-    ig_exc: Exception | None = None
-    fb_exc: Exception | None = None
+    ig_exc: BaseException | None = None
+    fb_exc: BaseException | None = None
+    threads_result: str | None = None
+    threads_exc: BaseException | None = None
+    reel_result: str | None = None
+    reel_exc: BaseException | None = None
 
     for label, result in zip(task_labels, results):
         if label == "instagram":
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 ig_exc = result
                 logger.error("Échec publication Instagram (post %d) : %s", post.id, result)
             else:
                 ig_result = result
                 logger.info("Instagram OK (post %d) : %s", post.id, result)
         elif label == "facebook":
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 fb_exc = result
                 logger.error("Échec publication Facebook (post %d) : %s", post.id, result)
             else:
                 fb_result = result
                 logger.info("Facebook OK (post %d) : %s", post.id, _fb_url(result))
+        elif label == "threads":
+            if isinstance(result, BaseException):
+                threads_exc = result
+                logger.error("Échec publication Threads (post %d) : %s", post.id, result)
+            else:
+                threads_result = result
+                logger.info("Threads OK (post %d) : %s", post.id, result)
+        elif label == "reel":
+            if isinstance(result, BaseException):
+                reel_exc = result
+                logger.error("Échec publication Reel (post %d) : %s", post.id, result)
+            else:
+                reel_result = result
+                logger.info("Reel OK (post %d) : %s", post.id, result)
 
     # Mise à jour atomique : status + erreurs + published_count dans un seul commit [DB-2]
     now_utc = datetime.now(timezone.utc).replace(tzinfo=None)
@@ -166,6 +204,19 @@ async def publish_to_all_platforms(
     elif fb_exc is not None:
         post.facebook_error = str(fb_exc)
 
+    if threads_result is not None:
+        post.threads_post_id = threads_result
+        post.threads_error = None
+    elif threads_exc is not None:
+        post.threads_error = str(threads_exc)
+
+    if reel_result is not None:
+        post.reel_post_id = reel_result
+        post.reel_error = None
+    elif reel_exc is not None:
+        post.reel_error = str(reel_exc)
+
+    # Threads et Reel sont non-bloquants (n'affectent pas post.status feed)
     success = ig_result is not None or fb_result is not None
     # Si les deux plateformes sont désactivées : succès intentionnel [IG-4]
     both_disabled = ig_publisher is None and fb_publisher is None
@@ -195,6 +246,16 @@ async def publish_to_all_platforms(
                 ),
                 {"id": post.article_id},
             )
+        elif post.gallica_id is not None:
+            await session.execute(
+                text(
+                    "UPDATE gallica_articles SET "
+                    "  published_count = published_count + 1, "
+                    "  updated_at = CURRENT_TIMESTAMP "
+                    "WHERE id = :id"
+                ),
+                {"id": post.gallica_id},
+            )
     else:
         post.status = "error"
         errors = []
@@ -212,7 +273,7 @@ async def publish_to_all_platforms(
     if story_image_url and (ig_publisher is not None or fb_publisher is not None):
         await _publish_stories(post, story_image_url, ig_publisher, fb_publisher, session)
 
-    return {"instagram": ig_result, "facebook": fb_result}
+    return {"instagram": ig_result, "facebook": fb_result, "threads": threads_result, "reel": reel_result}
 
 
 async def _publish_stories(
@@ -250,7 +311,7 @@ async def _publish_stories(
 
     story_ids = []
     for label, result in zip(story_labels, results):
-        if isinstance(result, Exception):
+        if isinstance(result, BaseException):
             logger.error("Échec Story %s (post %d) : %s", label, post.id, result)
         else:
             story_ids.append(result)

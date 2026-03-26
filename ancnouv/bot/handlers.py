@@ -135,6 +135,14 @@ async def _publish_approved_post(
             # Non-bloquant [RF-7.3.6] : on continue sans Story
             logger.warning("Upload Story échoué (non-bloquant) : %s", exc)
 
+    # Upload vidéo Reel si disponible [SPEC-8]
+    reel_video_url: str | None = None
+    if config.reels.enabled and post.reel_video_path:
+        try:
+            reel_video_url = await upload_image(Path(post.reel_video_path), config)
+        except ImageHostingError as exc:
+            logger.warning("Upload Reel vidéo échoué (non-bloquant) : %s", exc)
+
     # Étape 2 : instancier les publishers
     async def _notify(msg: str) -> None:
         await notify_all(bot, config, msg)
@@ -148,6 +156,8 @@ async def _publish_approved_post(
 
     ig_publisher = None
     fb_publisher = None
+    threads_publisher = None
+    reel_publisher = None
 
     if config.instagram.enabled:
         from ancnouv.publisher.instagram import InstagramPublisher
@@ -165,10 +175,29 @@ async def _publish_approved_post(
             config.instagram.api_version,
         )
 
-    # Étape 3 : publication feed + stories [SPEC-7, RF-7.3.3]
+    if config.threads.enabled:
+        from ancnouv.publisher.threads import ThreadsPublisher
+        threads_publisher = ThreadsPublisher(
+            config.threads.user_id,
+            token_manager,
+            config.threads.api_version,
+        )
+
+    if config.reels.enabled and reel_video_url:
+        from ancnouv.publisher.reels import InstagramReelsPublisher
+        reel_publisher = InstagramReelsPublisher(
+            config.instagram.user_id,
+            token_manager,
+            config.instagram.api_version,
+        )
+
+    # Étape 3 : publication feed + stories + threads + reels [SPEC-7, SPEC-8, SPEC-9.1]
     results = await publish_to_all_platforms(
         post, post.image_public_url, ig_publisher, fb_publisher, session,
         story_image_url=story_image_url,
+        threads_publisher=threads_publisher,
+        reel_video_url=reel_video_url,
+        reel_publisher=reel_publisher,
     )
 
     # Étape 4 : notification résultat [TELEGRAM_BOT.md — tableau notifications]

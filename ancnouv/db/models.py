@@ -129,6 +129,47 @@ class RssArticle(Base):
     )
 
 
+class GallicaArticle(Base):
+    """Article de presse numérisé BnF Gallica (Mode C). [DATABASE.md — Table gallica_articles]"""
+
+    __tablename__ = "gallica_articles"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    # Identifiant ARK unique
+    ark_id: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Contenu
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    date_published: Mapped[datetime] = mapped_column(nullable=False)
+    gallica_url: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Gestion
+    status: Mapped[str] = mapped_column(String, nullable=False, default="available")
+    published_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_used_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(
+        nullable=False, server_default=text("CURRENT_TIMESTAMP")
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP"),
+        onupdate=func.now(),
+    )
+
+    __table_args__ = (
+        UniqueConstraint("ark_id"),
+        CheckConstraint("status IN ('available', 'blocked')"),
+        Index("idx_gallica_date_published", "date_published"),
+        Index("idx_gallica_status", "status"),
+        Index("idx_gallica_status_created", "status", "created_at"),
+    )
+
+
 class Post(Base):
     """Post en cours de cycle de vie (approval → publication). [DATABASE.md — Table posts]"""
 
@@ -139,6 +180,7 @@ class Post(Base):
     # Source du contenu (exclusivité enforced par CheckConstraint)
     event_id: Mapped[int | None] = mapped_column(nullable=True)
     article_id: Mapped[int | None] = mapped_column(nullable=True)
+    gallica_id: Mapped[int | None] = mapped_column(nullable=True)  # [SPEC-9.3]
 
     # Contenu généré
     caption: Mapped[str] = mapped_column(Text, nullable=False)
@@ -168,6 +210,17 @@ class Post(Base):
     instagram_error: Mapped[str | None] = mapped_column(Text, nullable=True)
     facebook_post_id: Mapped[str | None] = mapped_column(Text, nullable=True)
     facebook_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Threads [SPEC-9.1]
+    threads_post_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    threads_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Reels Instagram [SPEC-8]
+    reel_video_path: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reel_container_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reel_post_id: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reel_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     retry_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
 
@@ -191,10 +244,11 @@ class Post(Base):
             "status IN ('pending_approval', 'approved', 'queued', 'publishing', "
             "'published', 'rejected', 'skipped', 'error', 'expired')"
         ),
-        # Exclusivité source : exactement un des deux doit être renseigné
+        # Exclusivité source : exactement une des trois sources doit être renseignée
         CheckConstraint(
-            "(event_id IS NOT NULL AND article_id IS NULL) OR "
-            "(event_id IS NULL AND article_id IS NOT NULL)"
+            "(event_id IS NOT NULL AND article_id IS NULL     AND gallica_id IS NULL    ) OR "
+            "(event_id IS NULL     AND article_id IS NOT NULL AND gallica_id IS NULL    ) OR "
+            "(event_id IS NULL     AND article_id IS NULL     AND gallica_id IS NOT NULL)"
         ),
         Index("idx_posts_status", "status"),
         Index("idx_posts_created_at", "created_at"),
@@ -203,6 +257,8 @@ class Post(Base):
         Index("idx_posts_article_id", "article_id"),
         Index("idx_posts_event_id_status", "event_id", "status"),
         Index("idx_posts_article_id_status", "article_id", "status"),
+        Index("idx_posts_gallica_id", "gallica_id"),
+        Index("idx_posts_gallica_id_status", "gallica_id", "status"),
     )
 
 
