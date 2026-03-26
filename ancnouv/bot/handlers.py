@@ -704,7 +704,7 @@ async def handle_approve(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     """
     query = update.callback_query
     try:
-        await query.answer()
+        await query.answer("Publication en cours…")
     except TelegramBadRequest as exc:
         logger.warning("query.answer() échoué (callback expirée ?) : %s", exc)
 
@@ -838,7 +838,7 @@ async def handle_reject(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     query = update.callback_query
     # Acquittement immédiat [TELEGRAM_BOT.md — délai max 10s]
     try:
-        await query.answer()
+        await query.answer("Rejeté.")
     except TelegramBadRequest as exc:
         logger.warning("query.answer() échoué (callback expirée ?) : %s", exc)
 
@@ -881,7 +881,7 @@ async def handle_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     """
     query = update.callback_query
     try:
-        await query.answer()
+        await query.answer("Ignoré.")
     except TelegramBadRequest as exc:
         logger.warning("query.answer() échoué (callback expirée ?) : %s", exc)
 
@@ -929,7 +929,7 @@ async def handle_queue_it(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     """Ajoute un post à la file d'attente. [SPEC-7ter, RF-7ter.1, RF-7ter.2, RF-7ter.5]"""
     query = update.callback_query
     try:
-        await query.answer()
+        await query.answer("Mis en file d'attente.")
     except TelegramBadRequest as exc:
         logger.warning("query.answer() échoué (callback expirée ?) : %s", exc)
 
@@ -1061,7 +1061,7 @@ async def handle_edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     """Point d'entrée du ConversationHandler d'édition. [TELEGRAM_BOT.md — handle_edit]"""
     query = update.callback_query
     try:
-        await query.answer()
+        await query.answer("Édition en cours…")
     except TelegramBadRequest as exc:
         logger.warning("query.answer() échoué (callback expirée ?) : %s", exc)
 
