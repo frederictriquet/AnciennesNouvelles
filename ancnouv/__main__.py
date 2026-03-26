@@ -36,7 +36,15 @@ def _build_parser() -> argparse.ArgumentParser:
     )
 
     # generate-test-image
-    sub.add_parser("generate-test-image", help="Générer une image de test")
+    gti = sub.add_parser("generate-test-image", help="Générer une image de test")
+    gti.add_argument(
+        "--source",
+        choices=["wiki", "rss", "gallica"],
+        default="wiki",
+        help="Type de source fictive (défaut : wiki)",
+    )
+    gti.add_argument("--story", action="store_true", help="Générer aussi l'image Story")
+    gti.add_argument("--reel", action="store_true", help="Générer aussi la vidéo Reel")
 
     # test telegram / instagram
     test_cmd = sub.add_parser("test", help="Tests de publication")
@@ -165,7 +173,12 @@ def _dispatch_inner(args: argparse.Namespace) -> int:
 
     if command == "generate-test-image":
         from ancnouv.cli.generate import generate_test_image
-        return generate_test_image(config)
+        return generate_test_image(
+            config,
+            source=getattr(args, "source", "wiki"),
+            story=getattr(args, "story", False),
+            reel=getattr(args, "reel", False),
+        )
 
     if command == "test":
         subcommand = getattr(args, "test_subcommand", None)
