@@ -10,7 +10,7 @@
   <div class="field-desc">{{ field.meta.description }}</div>
   {% endif %}
 
-  <form hx-post="/config/set" hx-swap="outerHTML" hx-target="#field-{{ field.field_id }}">
+  <form method="post" action="/config/set" hx-post="/config/set" hx-swap="outerHTML" hx-target="#field-{{ field.field_id }}">
     <input type="hidden" name="key" value="{{ field.meta.key }}">
 
     {% if field.meta.value_type == "bool" %}
