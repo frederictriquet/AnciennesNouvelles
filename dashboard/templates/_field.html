@@ -15,18 +15,16 @@
 
     {% if field.meta.value_type == "bool" %}
       <label class="toggle" title="Cliquer pour basculer">
-        <input type="checkbox" name="value"
-               value="true"
+        <input type="checkbox"
                {% if field.display == "True" or field.display == "true" %}checked{% endif %}
                hx-post="/config/set"
                hx-swap="outerHTML"
                hx-target="#field-{{ field.field_id }}"
                hx-trigger="change"
-               hx-include="closest form">
+               hx-include="closest form"
+               hx-vals='js:{"value": event.target.checked ? "true" : "false"}'>
         <span class="toggle-slider"></span>
       </label>
-      {# Fallback : non soumis si la checkbox est décochée — FastAPI prend le premier value #}
-      <input type="hidden" name="value" value="false">
     {% elif field.meta.validation and field.meta.validation.get("options") %}
       <select name="value">
         {% for opt in field.meta.validation["options"] %}
