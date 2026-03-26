@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import text
 from telegram import Update
+from telegram.error import BadRequest as TelegramBadRequest
 from telegram.ext import (
     CallbackQueryHandler,
     CommandHandler,
@@ -535,6 +536,9 @@ async def cmd_force(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     config: Config = context.bot_data["config"]
 
+    # Ack immédiat — la génération peut prendre plusieurs minutes (Reel vidéo)
+    await update.effective_message.reply_text("Génération en cours…")
+
     # Session unique pour generate_post + send_approval_request (post attaché à la session)
     async with get_session() as session:
         post = await generate_post(session)
@@ -699,7 +703,10 @@ async def handle_approve(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     les imports circulaires. [TELEGRAM_BOT.md]
     """
     query = update.callback_query
-    await query.answer()
+    try:
+        await query.answer()
+    except TelegramBadRequest as exc:
+        logger.warning("query.answer() échoué (callback expirée ?) : %s", exc)
 
     post_id = int(query.data.split(":")[1])
     config: Config = context.bot_data["config"]
@@ -830,7 +837,10 @@ async def handle_reject(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     """Rejette un post et bloque la source. [TELEGRAM_BOT.md — handle_reject, SPEC-3.3.2]"""
     query = update.callback_query
     # Acquittement immédiat [TELEGRAM_BOT.md — délai max 10s]
-    await query.answer()
+    try:
+        await query.answer()
+    except TelegramBadRequest as exc:
+        logger.warning("query.answer() échoué (callback expirée ?) : %s", exc)
 
     post_id = int(query.data.split(":")[1])
 
@@ -870,7 +880,10 @@ async def handle_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     Nouvelle session pour generate_post après le commit du skip. [TELEGRAM_BOT.md]
     """
     query = update.callback_query
-    await query.answer()
+    try:
+        await query.answer()
+    except TelegramBadRequest as exc:
+        logger.warning("query.answer() échoué (callback expirée ?) : %s", exc)
 
     post_id = int(query.data.split(":")[1])
     config: Config = context.bot_data["config"]
@@ -915,7 +928,10 @@ async def handle_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 async def handle_queue_it(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Ajoute un post à la file d'attente. [SPEC-7ter, RF-7ter.1, RF-7ter.2, RF-7ter.5]"""
     query = update.callback_query
-    await query.answer()
+    try:
+        await query.answer()
+    except TelegramBadRequest as exc:
+        logger.warning("query.answer() échoué (callback expirée ?) : %s", exc)
 
     post_id = int(query.data.split(":")[1])
     config: Config = context.bot_data["config"]
@@ -1044,7 +1060,10 @@ async def cmd_queue(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def handle_edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Point d'entrée du ConversationHandler d'édition. [TELEGRAM_BOT.md — handle_edit]"""
     query = update.callback_query
-    await query.answer()
+    try:
+        await query.answer()
+    except TelegramBadRequest as exc:
+        logger.warning("query.answer() échoué (callback expirée ?) : %s", exc)
 
     post_id = int(query.data.split(":")[1])
     msg = query.message
