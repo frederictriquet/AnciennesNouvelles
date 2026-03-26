@@ -315,8 +315,8 @@ async def _publish_stories(
             logger.error("Échec Story %s (post %d) : %s", label, post.id, result)
         else:
             story_ids.append(result)
-            url_str = _fb_url(result) if label == "fb" else result
-            logger.info("Story %s OK (post %d) : %s", label, post.id, url_str)
+            # Les Stories n'ont pas d'URL publique directe (éphémères 24h)
+            logger.info("Story %s OK (post %d) [story_id=%s]", label, post.id, result)
 
     if story_ids:
         # Stocker le premier story_post_id disponible (IG prioritaire)

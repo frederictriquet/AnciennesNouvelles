@@ -80,13 +80,13 @@ class InstagramReelsPublisher:
         await self._wait_for_container_ready(container_id, access_token)
 
         reel_post_id = await self._publish_container(container_id, access_token)
-        logger.info("Reel Instagram publié : %s (post %d).", reel_post_id, post.id)
 
         # Persister l'ID du post publié
         post.reel_post_id = reel_post_id
         await session.commit()
 
-        return reel_post_id
+        permalink = await self._get_permalink(reel_post_id, access_token)
+        return permalink or reel_post_id
 
     async def _create_reel_container(
         self, video_url: str, caption: str, access_token: str
@@ -147,6 +147,22 @@ class InstagramReelsPublisher:
             _raise_meta_error(*err)
         response.raise_for_status()
         return data.get("status_code", "IN_PROGRESS")
+
+    async def _get_permalink(self, media_id: str, access_token: str) -> str | None:
+        """Récupère l'URL publique du Reel depuis l'API Graph [SPEC-8].
+
+        Retourne None en cas d'erreur — l'appelant utilise alors l'ID numérique.
+        """
+        url = f"https://graph.facebook.com/{self.api_version}/{media_id}"
+        params = {"fields": "permalink", "access_token": access_token}
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, params=params, timeout=10)
+            data = response.json()
+            return data.get("permalink")
+        except Exception as exc:
+            logger.error("Impossible de récupérer le permalink Reel %s : %s", media_id, exc)
+            return None
 
     async def _publish_container(self, container_id: str, access_token: str) -> str:
         """Publie le container Reel FINISHED via media_publish [SPEC-8]. Retourne reel_post_id."""

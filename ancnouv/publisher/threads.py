@@ -90,8 +90,8 @@ class ThreadsPublisher:
         await self._wait_for_container_ready(container_id, access_token)
 
         threads_post_id = await self._publish_container(container_id, access_token)
-        logger.info("Post Threads publié : %s (post %d).", threads_post_id, post.id)
-        return threads_post_id
+        permalink = await self._get_permalink(threads_post_id, access_token)
+        return permalink or threads_post_id
 
     async def _create_container(
         self, image_url: str, caption: str, access_token: str
@@ -151,6 +151,22 @@ class ThreadsPublisher:
             _raise_meta_error(*err)
         response.raise_for_status()
         return data.get("status", "IN_PROGRESS")
+
+    async def _get_permalink(self, post_id: str, access_token: str) -> str | None:
+        """Récupère l'URL publique du post Threads via l'API [SPEC-9.1].
+
+        Retourne None en cas d'erreur — l'appelant utilise alors l'ID brut.
+        """
+        url = f"{_API_BASE}/{self.api_version}/{post_id}"
+        params = {"fields": "permalink", "access_token": access_token}
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, params=params, timeout=10)
+            data = response.json()
+            return data.get("permalink")
+        except Exception as exc:
+            logger.error("Impossible de récupérer le permalink Threads %s : %s", post_id, exc)
+            return None
 
     async def _publish_container(self, container_id: str, access_token: str) -> str:
         """Publie le container FINISHED via threads_publish [SPEC-9.1]. Retourne post_id."""

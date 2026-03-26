@@ -223,25 +223,19 @@ async def _publish_approved_post(
                 "Utiliser /retry_fb pour retenter."
             )
         else:
+            from ancnouv.publisher import _fb_url
             parts = []
             if results.get("instagram"):
                 parts.append(f"Instagram : {results['instagram']}")
             if results.get("facebook"):
-                fb_id = results["facebook"]
-                # post_id format : {page_id}_{object_id}
-                if "_" in fb_id:
-                    page_id, obj_id = fb_id.split("_", 1)
-                    fb_url = f"https://www.facebook.com/{page_id}/posts/{obj_id}"
-                else:
-                    fb_url = f"https://www.facebook.com/{fb_id}"
-                parts.append(f"Facebook : {fb_url}")
+                parts.append(f"Facebook : {_fb_url(results['facebook'])}")
+            if results.get("threads"):
+                parts.append(f"Threads : {results['threads']}")
+            if results.get("reel"):
+                parts.append(f"Reel : {results['reel']}")
             if post.story_post_id:
-                story_id = post.story_post_id
-                if "_" in story_id:
-                    pg, obj = story_id.split("_", 1)
-                    parts.append(f"Story FB : https://www.facebook.com/{pg}/posts/{obj}")
-                else:
-                    parts.append(f"Story IG : {story_id}")
+                # Les Stories n'ont pas d'URL publique directe (éphémères 24h)
+                parts.append(f"Story [id={post.story_post_id}]")
             msg = "Publié — " + " | ".join(parts) if parts else "✓ Publié avec succès."
             await notify_all(bot, config, msg)
     else:
