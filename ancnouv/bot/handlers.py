@@ -316,7 +316,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     scheduler_status = "en pause" if paused == "true" else "actif"
     next_run = _get_next_run_str(config)
 
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         f"Anciennes Nouvelles démarré ✓\n"
         f"Scheduler : {scheduler_status} | Prochain post : {next_run}\n"
         f"Posts en attente : {pending}\n"
@@ -327,7 +327,7 @@ async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 @authorized_only
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Liste statique des commandes. [TELEGRAM_BOT.md — cmd_help]"""
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         "/status — État détaillé du système\n"
         "/force  — Générer un post immédiatement\n"
         "/pause  — Suspendre la génération automatique\n"
@@ -377,7 +377,7 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 
     token_label = _TOKEN_LEVEL_LABELS.get(token_level, token_level or "normal")
 
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         f"Anciennes Nouvelles — État\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"Scheduler : {scheduler_status} | Prochain post : {next_run}\n"
@@ -419,7 +419,7 @@ async def cmd_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     total = published + rejected
     approval_rate = f"{published / total * 100:.0f}%" if total > 0 else "N/A"
 
-    await update.message.reply_text(
+    await update.effective_message.reply_text(
         f"Statistiques Anciennes Nouvelles\n"
         f"━━━━━━━━━━━━━━━━━━━━\n"
         f"Total publié : {published}\n"
@@ -445,7 +445,7 @@ async def cmd_pending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         rows = result.fetchall()
 
     if not rows:
-        await update.message.reply_text("Aucun post en attente.")
+        await update.effective_message.reply_text("Aucun post en attente.")
         return
 
     lines = [f"Posts en attente ({len(rows)}) :"]
@@ -479,7 +479,7 @@ async def cmd_pending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
         lines.append(f'• #{post_id} — il y a {hours}h — "{extract}..." — {link}')
 
-    await update.message.reply_text("\n".join(lines))
+    await update.effective_message.reply_text("\n".join(lines))
 
 
 @authorized_only
@@ -487,7 +487,7 @@ async def cmd_pause(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Met le scheduler en pause. [TELEGRAM_BOT.md — cmd_pause, SPEC-3.5.4]"""
     async with get_session() as session:
         await set_scheduler_state(session, "paused", "true")
-    await update.message.reply_text("Scheduler mis en pause.")
+    await update.effective_message.reply_text("Scheduler mis en pause.")
 
 
 @authorized_only
@@ -495,7 +495,7 @@ async def cmd_resume(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     """Reprend le scheduler. [TELEGRAM_BOT.md — cmd_resume, SPEC-3.5.4]"""
     async with get_session() as session:
         await set_scheduler_state(session, "paused", "false")
-    await update.message.reply_text("Scheduler repris.")
+    await update.effective_message.reply_text("Scheduler repris.")
 
 
 @authorized_only
@@ -516,7 +516,7 @@ async def cmd_force(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         post = await generate_post(session)
 
         if post is None:
-            await update.message.reply_text(
+            await update.effective_message.reply_text(
                 "Aucun événement disponible — base de données épuisée "
                 "ou tous les candidats exclus par les filtres."
             )
@@ -524,7 +524,7 @@ async def cmd_force(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         await send_approval_request(post, context.bot, session, config)
 
-    await update.message.reply_text("Post généré et envoyé en approbation.")
+    await update.effective_message.reply_text("Post généré et envoyé en approbation.")
 
 
 @authorized_only
@@ -546,13 +546,13 @@ async def cmd_retry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         )
         row = result.fetchone()
         if not row:
-            await update.message.reply_text("Aucun post en erreur.")
+            await update.effective_message.reply_text("Aucun post en erreur.")
             return
         post_id = row[0]
 
         post = await session.get(Post, post_id)
         if post is None:
-            await update.message.reply_text("Aucun post en erreur.")
+            await update.effective_message.reply_text("Aucun post en erreur.")
             return
 
         # Verrou optimiste [TELEGRAM_BOT.md]
@@ -579,9 +579,9 @@ async def cmd_retry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     result_status = post.status
     if result_status == "published":
-        await update.message.reply_text("Post republié avec succès.")
+        await update.effective_message.reply_text("Post republié avec succès.")
     else:
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             f"Échec du retry : {post.error_message}. Post en statut {result_status}."
         )
 
@@ -601,7 +601,7 @@ async def cmd_retry_ig(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
         row = result.fetchone()
         if not row:
-            await update.message.reply_text(
+            await update.effective_message.reply_text(
                 "Aucun post avec erreur Instagram en attente de retry."
             )
             return
@@ -617,9 +617,9 @@ async def cmd_retry_ig(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await _retry_single_platform(post, "instagram", session, context.bot, config)
 
     if post.instagram_error is None:
-        await update.message.reply_text("Retry Instagram réussi.")
+        await update.effective_message.reply_text("Retry Instagram réussi.")
     else:
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             f"Retry Instagram échoué : {post.instagram_error}"
         )
 
@@ -639,7 +639,7 @@ async def cmd_retry_fb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         )
         row = result.fetchone()
         if not row:
-            await update.message.reply_text(
+            await update.effective_message.reply_text(
                 "Aucun post avec erreur Facebook en attente de retry."
             )
             return
@@ -655,9 +655,9 @@ async def cmd_retry_fb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         await _retry_single_platform(post, "facebook", session, context.bot, config)
 
     if post.facebook_error is None:
-        await update.message.reply_text("Retry Facebook réussi.")
+        await update.effective_message.reply_text("Retry Facebook réussi.")
     else:
-        await update.message.reply_text(
+        await update.effective_message.reply_text(
             f"Retry Facebook échoué : {post.facebook_error}"
         )
 
@@ -990,7 +990,7 @@ async def cmd_queue(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         rows = result.fetchall()
 
     if not rows:
-        await update.message.reply_text("File d'attente vide.")
+        await update.effective_message.reply_text("File d'attente vide.")
         return
 
     tz = ZoneInfo(config.scheduler.timezone)
@@ -1009,7 +1009,7 @@ async def cmd_queue(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             time_str = f"position {i}"
         lines.append(f'• #{post_id} — {time_str} — "{extract}..."')
 
-    await update.message.reply_text("\n".join(lines))
+    await update.effective_message.reply_text("\n".join(lines))
 
 
 # ---------------------------------------------------------------------------
@@ -1060,7 +1060,7 @@ async def handle_new_caption(
     async with get_session() as session:
         post = await session.get(Post, post_id)
         if post is None:
-            await update.message.reply_text("Post introuvable.")
+            await update.effective_message.reply_text("Post introuvable.")
             return ConversationHandler.END
 
         # Mise à jour légende complète en DB [TF-F11]
@@ -1105,7 +1105,7 @@ async def cancel_edit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
     Ne modifie pas le post en DB. Les boutons d'approbation restent actifs.
     """
-    await update.message.reply_text("Édition annulée.")
+    await update.effective_message.reply_text("Édition annulée.")
     return ConversationHandler.END
 
 

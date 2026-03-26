@@ -816,13 +816,13 @@ async def test_cancel_edit_returns_end(mock_config):
     from ancnouv.bot.handlers import cancel_edit
 
     update = MagicMock()
-    update.message.reply_text = AsyncMock()
+    update.effective_message.reply_text = AsyncMock()
     context = MagicMock()
 
     result = await cancel_edit(update, context)
 
     assert result == ConversationHandler.END
-    update.message.reply_text.assert_called_once_with("Édition annulée.")
+    update.effective_message.reply_text.assert_called_once_with("Édition annulée.")
 
 
 # ─── handle_edit_timeout ──────────────────────────────────────────────────────────
