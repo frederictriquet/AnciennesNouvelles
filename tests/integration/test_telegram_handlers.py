@@ -1212,3 +1212,90 @@ async def test_retry_single_platform_error(db_session, mock_config, mock_bot):
     assert "publish failed" in post.instagram_error
     assert post.instagram_post_id is None
     assert post.status == "published"
+
+
+# ─── query.answer() TelegramBadRequest ───────────────────────────────────────────
+
+
+async def test_handle_approve_query_expired(db_session, mock_config):
+    """query.answer() expirée (>60s) → handle_approve continue sans lever d'exception."""
+    from unittest.mock import AsyncMock
+    from telegram.error import BadRequest as TelegramBadRequest
+    from ancnouv.bot.handlers import handle_approve
+
+    update = _make_update(123456789, callback_data="approve:99999")
+    update.callback_query.answer = AsyncMock(side_effect=TelegramBadRequest("Query is too old"))
+    context = _make_context(mock_config)
+
+    await handle_approve(update, context)  # ne doit pas lever
+
+
+async def test_handle_reject_query_expired(db_session, mock_config):
+    """query.answer() expirée (>60s) → handle_reject continue sans lever d'exception."""
+    from unittest.mock import AsyncMock
+    from telegram.error import BadRequest as TelegramBadRequest
+    from ancnouv.bot.handlers import handle_reject
+
+    update = _make_update(123456789, callback_data="reject:99999")
+    update.callback_query.answer = AsyncMock(side_effect=TelegramBadRequest("Query is too old"))
+    context = _make_context(mock_config)
+
+    await handle_reject(update, context)
+
+
+async def test_handle_skip_query_expired(db_session, mock_config):
+    """query.answer() expirée (>60s) → handle_skip continue sans lever d'exception."""
+    from unittest.mock import AsyncMock
+    from telegram.error import BadRequest as TelegramBadRequest
+    from ancnouv.bot.handlers import handle_skip
+
+    update = _make_update(123456789, callback_data="skip:99999")
+    update.callback_query.answer = AsyncMock(side_effect=TelegramBadRequest("Query is too old"))
+    context = _make_context(mock_config)
+
+    # Post introuvable → retour immédiat avant d'appeler generate_post
+    await handle_skip(update, context)
+
+
+async def test_handle_queue_it_query_expired(db_session, mock_config):
+    """query.answer() expirée (>60s) → handle_queue_it continue sans lever d'exception."""
+    from unittest.mock import AsyncMock
+    from telegram.error import BadRequest as TelegramBadRequest
+    from ancnouv.bot.handlers import handle_queue_it
+
+    update = _make_update(123456789, callback_data="queue:99999")
+    update.callback_query.answer = AsyncMock(side_effect=TelegramBadRequest("Query is too old"))
+    context = _make_context(mock_config)
+
+    await handle_queue_it(update, context)
+
+
+async def test_handle_edit_query_expired(db_session, db_event, mock_config):
+    """query.answer() expirée (>60s) → handle_edit continue sans lever d'exception."""
+    from unittest.mock import AsyncMock
+    from telegram.error import BadRequest as TelegramBadRequest
+    from ancnouv.bot.handlers import handle_edit
+
+    post = Post(
+        event_id=db_event.id,
+        caption="Test",
+        image_path="/tmp/test.jpg",
+        status="pending_approval",
+        telegram_message_ids="{}",
+    )
+    db_session.add(post)
+    await db_session.commit()
+    await db_session.refresh(post)
+
+    update = _make_update(123456789, callback_data=f"edit:{post.id}")
+    update.callback_query.answer = AsyncMock(side_effect=TelegramBadRequest("Query is too old"))
+    update.callback_query.message.message_id = 42
+    update.callback_query.message.photo = None
+    update.callback_query.message.text = "Test"
+    update.callback_query.message.caption = None
+    update.callback_query.message.reply_text = AsyncMock()
+    update.effective_chat = MagicMock()
+    update.effective_chat.id = 123456789
+    context = _make_context(mock_config)
+
+    await handle_edit(update, context)
