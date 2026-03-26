@@ -141,7 +141,8 @@ async def _publish_approved_post(
         try:
             reel_video_url = await upload_image(Path(post.reel_video_path), config)
         except ImageHostingError as exc:
-            logger.warning("Upload Reel vidéo échoué (non-bloquant) : %s", exc)
+            logger.error("Upload Reel vidéo échoué : %s", exc, exc_info=True)
+            await notify_all(bot, config, f"⚠️ Upload vidéo Reel échoué : {exc}")
 
     # Étape 2 : instancier les publishers
     async def _notify(msg: str) -> None:

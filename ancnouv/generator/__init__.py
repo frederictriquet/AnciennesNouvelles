@@ -135,7 +135,7 @@ async def generate_post(session: AsyncSession) -> Post | None:
             )
             reel_video_path = str(reel_out)
         except Exception as exc:
-            logger.warning("Génération Reel échouée (non-bloquant) : %s", exc)
+            logger.error("Génération Reel échouée : %s", exc, exc_info=True)
 
     # Formatage légende
     if isinstance(source, RssArticle):

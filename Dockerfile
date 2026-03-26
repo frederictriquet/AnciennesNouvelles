@@ -2,13 +2,14 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Dépendances système pour Pillow
+# Dépendances système pour Pillow et ffmpeg (génération vidéo Reels [SPEC-8.3])
 # libjpeg62-turbo-dev : codec JPEG obligatoire — sans lui, pip install Pillow réussit
 # mais img.save(..., "JPEG") lève KeyError: encoder jpeg not available au runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libffi-dev \
     libjpeg62-turbo-dev \
     zlib1g-dev \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
