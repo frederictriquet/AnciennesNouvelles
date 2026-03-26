@@ -58,14 +58,16 @@ async def generate_reel_video(
             f"[blended]fade=t=in:st=0:d={_FADE_IN},"
             f"fade=t=out:st={fade_out_start}:d={_FADE_OUT}[vout]"
         )
+        # Tous les -i d'abord, puis les options de sortie (ffmpeg exige cet ordre)
         cmd = [
             "ffmpeg", "-y",
             "-loop", "1", "-t", str(duration_seconds), "-i", str(shell_image_path),
             "-loop", "1", "-t", str(duration_seconds), "-i", str(image_path),
-            "-filter_complex", filter_complex,
-            "-map", "[vout]",
         ]
         audio_input_idx = 2
+        if audio_path is not None:
+            cmd += ["-i", str(audio_path)]
+        cmd += ["-filter_complex", filter_complex, "-map", "[vout]"]
     else:
         # Fallback : image unique, simple fade in/out
         vf = (
@@ -73,15 +75,18 @@ async def generate_reel_video(
             f"fade=t=in:st=0:d={_FADE_IN},"
             f"fade=t=out:st={fade_out_start}:d={_FADE_OUT}"
         )
+        # Tous les -i d'abord, puis les options de sortie (ffmpeg exige cet ordre)
         cmd = [
             "ffmpeg", "-y",
             "-loop", "1", "-t", str(duration_seconds), "-i", str(image_path),
-            "-vf", vf,
         ]
         audio_input_idx = 1
+        if audio_path is not None:
+            cmd += ["-i", str(audio_path)]
+        cmd += ["-vf", vf]
 
     if audio_path is not None:
-        cmd += ["-i", str(audio_path), "-map", f"{audio_input_idx}:a", "-c:a", "aac", "-b:a", "128k"]
+        cmd += ["-map", f"{audio_input_idx}:a", "-c:a", "aac", "-b:a", "128k"]
 
     cmd += [
         "-c:v", "libx264",
