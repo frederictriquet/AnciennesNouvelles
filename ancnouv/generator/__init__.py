@@ -100,7 +100,8 @@ async def generate_post(session: AsyncSession) -> Post | None:
     reel_video_path: str | None = None
     if config.reels.enabled:
         try:
-            from ancnouv.generator.video import generate_reel_video, get_reel_output_path
+            from ancnouv.generator.video import generate_reel_video, get_reel_output_path, get_shell_output_path
+            from ancnouv.generator.image import generate_shell_image
             reel_out = get_reel_output_path(output_path)
             audio: Path | None = None
             if config.reels.audio_file:
@@ -108,9 +109,18 @@ async def generate_post(session: AsyncSession) -> Post | None:
                 if not audio.exists():
                     logger.warning("Fichier audio Reel introuvable : %s — sans audio", audio)
                     audio = None
+            # Image shell (fond+chrome sans texte) pour l'animation fade+reveal
+            shell_path = get_shell_output_path(output_path)
+            shell_image_path: Path | None = None
+            try:
+                generate_shell_image(source, config, shell_path)
+                shell_image_path = shell_path
+            except Exception as shell_exc:
+                logger.warning("Génération shell image échouée (fallback sans shell) : %s", shell_exc)
             await generate_reel_video(
                 output_path,
                 reel_out,
+                shell_image_path=shell_image_path,
                 audio_path=audio,
                 duration_seconds=config.reels.duration_seconds,
                 fps=config.reels.fps,

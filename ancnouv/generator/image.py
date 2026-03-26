@@ -709,3 +709,49 @@ def generate_image(
         raise GeneratorError(
             f"Échec génération image pour id={source_id} : {exc}"
         ) from exc
+
+
+def generate_shell_image(
+    source: "Event | RssArticle",
+    config: "Config",
+    output_path: Path,
+) -> Path:
+    """Génère l'image chrome sans contenu texte pour l'animation Reel [SPEC-8.3].
+
+    Contient : fond, texture papier, bordure décorative, masthead, séparateurs.
+    Exclut : date banner, texte événement, thumbnail, footer.
+    Utilisée comme première frame — même template couleur que generate_image.
+    """
+    try:
+        from ancnouv.db.models import RssArticle
+
+        W = config.image.width
+        H = config.image.height
+
+        if isinstance(source, RssArticle):
+            colors = _get_template_for_year(None, config.image.force_template or "xxi")
+        else:
+            event_year = getattr(source, "year", None)
+            colors = _get_template_for_year(event_year, config.image.force_template)
+
+        img = Image.new("RGB", (W, H), color=colors["background"])
+        if config.image.paper_texture:
+            img = _draw_paper_texture(img, intensity=config.image.paper_texture_intensity)
+
+        draw = ImageDraw.Draw(img)
+        fonts = _load_fonts()
+
+        _draw_decorative_border(draw, W, H, colors)
+        _draw_masthead(draw, W, config.image.masthead_text, fonts, colors)
+
+        # Séparateurs horizontaux — structure visuelle sans contenu
+        _draw_divider(draw, W, y=175, colors=colors)
+        _draw_divider(draw, W, y=275, colors=colors)
+        _draw_divider(draw, W, y=1230, colors=colors)
+
+        img.save(str(output_path), "JPEG", quality=config.image.jpeg_quality, optimize=True)
+        return output_path
+    except GeneratorError:
+        raise
+    except Exception as exc:
+        raise GeneratorError(f"Échec génération shell image : {exc}") from exc

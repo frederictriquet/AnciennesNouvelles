@@ -109,14 +109,15 @@ def generate_test_image(
 
     # Génération vidéo Reel
     if reel:
-        return asyncio.run(_generate_test_reel(config, output_path))
+        return asyncio.run(_generate_test_reel(config, output_path, src))
 
     return 0
 
 
-async def _generate_test_reel(config: Config, feed_image: Path) -> int:
-    """Génère une vidéo Reel de test à partir de l'image feed. [SPEC-8.3]"""
-    from ancnouv.generator.video import generate_reel_video, get_reel_output_path
+async def _generate_test_reel(config: Config, feed_image: Path, source) -> int:
+    """Génère une vidéo Reel de test avec animation fade+reveal. [SPEC-8.3]"""
+    from ancnouv.generator.video import generate_reel_video, get_reel_output_path, get_shell_output_path
+    from ancnouv.generator.image import generate_shell_image
 
     reel_out = get_reel_output_path(feed_image)
     audio: Path | None = None
@@ -126,10 +127,21 @@ async def _generate_test_reel(config: Config, feed_image: Path) -> int:
             print(f"Audio introuvable : {audio} — sans audio", file=sys.stderr)
             audio = None
 
+    # Générer l'image shell (fond+chrome sans texte) pour l'animation
+    shell_path = get_shell_output_path(feed_image)
+    shell_image_path: Path | None = None
+    try:
+        generate_shell_image(source, config, shell_path)
+        print(f"Shell : {shell_path}")
+        shell_image_path = shell_path
+    except Exception as exc:
+        print(f"Shell non généré (fallback sans shell) : {exc}", file=sys.stderr)
+
     try:
         result = await generate_reel_video(
             feed_image,
             reel_out,
+            shell_image_path=shell_image_path,
             audio_path=audio,
             duration_seconds=config.reels.duration_seconds,
             fps=config.reels.fps,
