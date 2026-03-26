@@ -225,20 +225,20 @@ async def _publish_approved_post(
             )
         else:
             from ancnouv.publisher import _fb_url
-            parts = []
+            lines = ["Publié ✓"]
             if results.get("instagram"):
-                parts.append(f"Instagram : {results['instagram']}")
+                lines.append(f"Instagram : {results['instagram']}")
             if results.get("facebook"):
-                parts.append(f"Facebook : {_fb_url(results['facebook'])}")
+                lines.append(f"Facebook : {_fb_url(results['facebook'])}")
             if results.get("threads"):
-                parts.append(f"Threads : {results['threads']}")
+                lines.append(f"Threads : {results['threads']}")
             if results.get("reel"):
-                parts.append(f"Reel : {results['reel']}")
+                lines.append(f"Reel : {results['reel']}")
+            elif reel_publisher is not None:
+                lines.append(f"⚠️ Reel : échec publication — {post.reel_error or 'voir logs'}")
             if post.story_post_id:
-                # Les Stories n'ont pas d'URL publique directe (éphémères 24h)
-                parts.append(f"Story [id={post.story_post_id}]")
-            msg = "Publié — " + " | ".join(parts) if parts else "✓ Publié avec succès."
-            await notify_all(bot, config, msg)
+                lines.append("Story : publiée (visible 24h)")
+            await notify_all(bot, config, "\n".join(lines))
     else:
         # status = "error"
         await notify_all(

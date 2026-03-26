@@ -417,6 +417,12 @@ async def _job_generate_inner() -> None:
         )
         return
 
+    if config.reels.enabled and post.reel_video_path is None:
+        await notify_all(
+            bot_app.bot, config,
+            "⚠️ Reel non généré pour ce post — voir les logs (ffmpeg introuvable ou erreur d'encodage).",
+        )
+
     if not config.scheduler.auto_publish:
         # Mode approbation (défaut) — envoyer pour validation Telegram [SCHEDULER.md JOB-3]
         async with get_session() as session:
@@ -470,7 +476,8 @@ async def _job_generate_inner() -> None:
                     config.instagram.user_id, token_mgr, config.instagram.api_version
                 )
             except Exception as reel_exc:
-                logger.warning("auto_publish : upload Reel échoué (non-bloquant) : %s", reel_exc)
+                logger.error("auto_publish : upload Reel échoué : %s", reel_exc, exc_info=True)
+                await notify_all(bot_app.bot, config, f"⚠️ Upload Reel échoué : {reel_exc}")
 
         async with _get_session() as pub_session:
             pub_post = await pub_session.get(Post, post.id)
