@@ -20,6 +20,7 @@ def _build_parser() -> argparse.ArgumentParser:
     setup = sub.add_parser("setup", help="Commandes de configuration")
     setup_sub = setup.add_subparsers(dest="setup_subcommand")
     setup_sub.add_parser("fonts", help="Télécharger les polices Google Fonts")
+    setup_sub.add_parser("audio", help="Télécharger les fichiers audio CC0 pour les Reels")
 
     # auth meta / test
     auth = sub.add_parser("auth", help="Authentification Meta")
@@ -117,7 +118,10 @@ def _dispatch_inner(args: argparse.Namespace) -> int:
         if subcommand == "fonts":
             from ancnouv.cli.setup import download_fonts
             return download_fonts()
-        print("Sous-commande setup inconnue. Options : fonts", file=sys.stderr)
+        if subcommand == "audio":
+            from ancnouv.cli.setup import download_audio
+            return download_audio()
+        print("Sous-commande setup inconnue. Options : fonts, audio", file=sys.stderr)
         return 2
 
     if command == "images-server":

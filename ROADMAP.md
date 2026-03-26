@@ -604,25 +604,25 @@
 
 ---
 
-## Phase 11 — v3+ (non planifié) [SPEC-8, SPEC-9]
+## Phase 11 — v3+ [SPEC-8, SPEC-9]
 
-> Étude de faisabilité uniquement. Aucune implémentation avant stabilisation v2.
+> Implémentation en cours sur `feat/phase11`.
 
 ### Reels Instagram et Facebook [SPEC-8]
 
-- [ ] Choix librairie vidéo : `ffmpeg` (subprocess) ou `moviepy` [SPEC-8.3]
-- [ ] Génération vidéo : effet Ken Burns, 15–30s, MP4 H.264, 1080×1920 [SPEC-8.3]
-- [ ] Upload vidéo en deux temps (API Meta async) [SPEC-8.3]
-- [ ] Polling statut traitement (1–5 min) [SPEC-8.3]
-- [ ] Droits audio : silence ou bibliothèques Creative Commons [SPEC-8.3]
+- [x] Choix librairie vidéo : `ffmpeg` (subprocess) [SPEC-8.3]
+- [x] Génération vidéo : animation fade+reveal (shell → image complète), 15–30s, MP4 H.264, 1080×1920 [SPEC-8.3]
+- [x] Upload vidéo en deux temps (API Meta async) [SPEC-8.3]
+- [x] Polling statut traitement (max 5 min — 150 × 2s) [SPEC-8.3]
+- [x] Droits audio : 3 enregistrements CC0 1.0 (Internet Archive) — `setup audio` + sélection aléatoire automatique depuis `assets/audio/` [SPEC-8.3]
 - [ ] Politique rétention révisée (5–20 Mo/fichier) [SPEC-8.3]
 - [ ] Performance RPi : H264 hardware acceleration [SPEC-8.3]
 
 ### Autres formats et sources [SPEC-9]
 
-- [ ] Threads (publication texte uniquement)
+- [x] Threads (publication texte uniquement)
 - [ ] Carrousel Instagram (multi-images)
-- [ ] Archives BnF / Gallica (source historique alternative)
+- [x] Archives BnF / Gallica (source historique alternative)
 
 ---
 

@@ -10,6 +10,9 @@ logs/
 # Polices (téléchargées via setup fonts)
 assets/fonts/*.ttf
 
+# Fichiers audio CC0 (téléchargés via setup audio)
+assets/audio/*.mp3
+
 # Python
 __pycache__/
 *.py[cod]

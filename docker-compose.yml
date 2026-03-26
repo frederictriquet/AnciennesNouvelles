@@ -13,11 +13,10 @@ services:
       - ./logs:/app/logs
       - ./config.yml:/app/config.yml:ro
       - ./.env:/app/.env:ro
-      # [D-04] assets/ monté en rw — requis si setup fonts est lancé dans le conteneur.
-      # Solution recommandée : télécharger les polices AVANT docker compose up :
-      #   python -m ancnouv setup fonts  (sur la machine hôte, dans .venv)
-      #   puis les polices sont présentes dans ./assets/fonts/ au moment du build.
-      # Ne PAS monter en :ro si setup fonts doit écrire dans le conteneur.
+      # [D-04] assets/ monté en rw — requis pour setup fonts/audio.
+      # Sur le VPS (pas de Python local) : docker exec <container> python -m ancnouv setup fonts
+      #                                    docker exec <container> python -m ancnouv setup audio
+      # Les fichiers sont écrits dans le conteneur et persistés sur le host via ce volume.
       - ./assets:/app/assets
     environment:
       - TZ=Europe/Paris

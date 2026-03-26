@@ -109,6 +109,13 @@ async def generate_post(session: AsyncSession) -> Post | None:
                 if not audio.exists():
                     logger.warning("Fichier audio Reel introuvable : %s — sans audio", audio)
                     audio = None
+            else:
+                # Sélection aléatoire parmi les fichiers CC0 de assets/audio/ [SPEC-8.3]
+                audio_dir = Path("assets") / "audio"
+                candidates = list(audio_dir.glob("*.mp3")) if audio_dir.exists() else []
+                if candidates:
+                    audio = random.choice(candidates)
+                    logger.debug("Audio Reel sélectionné : %s", audio.name)
             # Image shell (fond+chrome sans texte) pour l'animation fade+reveal
             # La miniature est incluse dans le shell : révélée en phase 1, texte en phase 2
             shell_path = get_shell_output_path(output_path)
