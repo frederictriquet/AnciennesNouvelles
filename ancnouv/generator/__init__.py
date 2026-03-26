@@ -110,10 +110,11 @@ async def generate_post(session: AsyncSession) -> Post | None:
                     logger.warning("Fichier audio Reel introuvable : %s — sans audio", audio)
                     audio = None
             # Image shell (fond+chrome sans texte) pour l'animation fade+reveal
+            # La miniature est incluse dans le shell : révélée en phase 1, texte en phase 2
             shell_path = get_shell_output_path(output_path)
             shell_image_path: Path | None = None
             try:
-                generate_shell_image(source, config, shell_path)
+                generate_shell_image(source, config, shell_path, thumbnail=thumbnail)
                 shell_image_path = shell_path
             except Exception as shell_exc:
                 logger.warning("Génération shell image échouée (fallback sans shell) : %s", shell_exc)

@@ -715,12 +715,14 @@ def generate_shell_image(
     source: "Event | RssArticle",
     config: "Config",
     output_path: Path,
+    thumbnail: "Image.Image | None" = None,
 ) -> Path:
-    """Génère l'image chrome sans contenu texte pour l'animation Reel [SPEC-8.3].
+    """Génère l'image chrome sans texte contenu pour l'animation Reel [SPEC-8.3].
 
-    Contient : fond, texture papier, bordure décorative, masthead, séparateurs.
-    Exclut : date banner, texte événement, thumbnail, footer.
-    Utilisée comme première frame — même template couleur que generate_image.
+    Contient : fond, texture papier, bordure décorative, masthead, séparateurs,
+               et la miniature si disponible (photo révélée en phase 1).
+    Exclut : date banner, texte événement, footer.
+    La miniature apparaît dès le fade-in — seul le texte est révélé en phase 2.
     """
     try:
         from ancnouv.db.models import RssArticle
@@ -743,6 +745,10 @@ def generate_shell_image(
 
         _draw_decorative_border(draw, W, H, colors)
         _draw_masthead(draw, W, config.image.masthead_text, fonts, colors)
+
+        # Miniature dessinée dans le shell — visible dès la phase 1 du Reel
+        if thumbnail is not None:
+            _draw_thumbnail(img, thumbnail, y=920, W=W)
 
         # Séparateurs horizontaux — structure visuelle sans contenu
         _draw_divider(draw, W, y=175, colors=colors)
