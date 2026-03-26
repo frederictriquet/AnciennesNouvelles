@@ -180,3 +180,23 @@ async def test_get_container_status(db_session, mock_config, httpx_mock):
     publisher = InstagramReelsPublisher(ig_user_id="u", token_manager=token_mgr, api_version=api_version)
     status = await publisher._get_container_status(container_id, "token")
     assert status == "FINISHED"
+
+
+async def test_get_permalink_reel(db_session, mock_config, httpx_mock):
+    """_get_permalink retourne l'URL publique du Reel."""
+    import re
+    from ancnouv.publisher.reels import InstagramReelsPublisher
+    from ancnouv.publisher.token_manager import TokenManager
+
+    media_id = "reel_media_123"
+    api_version = "v21.0"
+
+    httpx_mock.add_response(
+        url=re.compile(rf"https://graph\.facebook\.com/{api_version}/{media_id}"),
+        json={"permalink": "https://www.instagram.com/reel/ABC123/", "id": media_id},
+    )
+
+    token_mgr = TokenManager(mock_config.meta_app_id, mock_config.meta_app_secret)
+    publisher = InstagramReelsPublisher(ig_user_id="u", token_manager=token_mgr, api_version=api_version)
+    permalink = await publisher._get_permalink(media_id, "token")
+    assert permalink == "https://www.instagram.com/reel/ABC123/"

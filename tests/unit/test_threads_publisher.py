@@ -195,3 +195,23 @@ async def test_get_container_status(db_session, mock_config, httpx_mock):
     publisher = ThreadsPublisher(user_id="u", token_manager=token_mgr, api_version=api_version)
     status = await publisher._get_container_status(container_id, "token")
     assert status == "FINISHED"
+
+
+async def test_get_permalink_threads(db_session, mock_config, httpx_mock):
+    """_get_permalink retourne l'URL publique du post Threads."""
+    import re
+    from ancnouv.publisher.threads import ThreadsPublisher
+    from ancnouv.publisher.token_manager import TokenManager
+
+    post_id = "threads_post_456"
+    api_version = "v1.0"
+
+    httpx_mock.add_response(
+        url=re.compile(rf"https://graph\.threads\.net/{api_version}/{post_id}"),
+        json={"permalink": "https://www.threads.net/@user/post/ABC456", "id": post_id},
+    )
+
+    token_mgr = TokenManager(mock_config.meta_app_id, mock_config.meta_app_secret)
+    publisher = ThreadsPublisher(user_id="u", token_manager=token_mgr, api_version=api_version)
+    permalink = await publisher._get_permalink(post_id, "token")
+    assert permalink == "https://www.threads.net/@user/post/ABC456"
