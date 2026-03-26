@@ -308,6 +308,74 @@ def test_time_ago_from_datetime_fallback_recent():
     assert result == "Il y a moins d'un mois"
 
 
+# ─── format_caption_gallica ───────────────────────────────────────────────────────
+
+def test_format_caption_gallica_full(mock_config):
+    """Légende Mode C avec titre, description et source_name. [SPEC-9.3]"""
+    from datetime import date
+    from unittest.mock import MagicMock
+    from ancnouv.generator.caption import format_caption_gallica
+
+    article = MagicMock()
+    article.title = "Le Figaro"
+    article.description = "Compte rendu des séances parlementaires."
+    article.date_published = date(1900, 3, 15)
+    article.source_name = "Imprimerie nationale"
+
+    mock_config.caption.hashtags = ["#histoire"]
+    mock_config.caption.hashtags_separator = "\n\n"
+
+    result = format_caption_gallica(article, mock_config)
+
+    assert "Le Figaro" in result
+    assert "Compte rendu" in result
+    assert "15 mars 1900" in result
+    assert "BnF Gallica — Imprimerie nationale" in result
+    assert "#histoire" in result
+
+
+def test_format_caption_gallica_no_description(mock_config):
+    """Légende Mode C sans description → titre + date + source. [SPEC-9.3]"""
+    from datetime import date
+    from unittest.mock import MagicMock
+    from ancnouv.generator.caption import format_caption_gallica
+
+    article = MagicMock()
+    article.title = "Journal officiel"
+    article.description = None
+    article.date_published = date(1914, 8, 1)
+    article.source_name = None
+
+    mock_config.caption.hashtags = []
+    mock_config.caption.hashtags_separator = "\n\n"
+
+    result = format_caption_gallica(article, mock_config)
+
+    assert "Journal officiel" in result
+    assert "1 août 1914" in result
+    assert "Source : BnF Gallica\n" in result or result.endswith("Source : BnF Gallica")
+
+
+def test_format_caption_gallica_date_fallback(mock_config):
+    """date_published sans méthode strftime → str() utilisée. [SPEC-9.3]"""
+    from unittest.mock import MagicMock
+    from ancnouv.generator.caption import format_caption_gallica
+
+    article = MagicMock()
+    article.title = "Gazette"
+    article.description = None
+    article.source_name = None
+    # date_published sans strftime → déclenche le else de hasattr
+    del article.date_published.strftime
+    article.date_published.__str__ = lambda self: "1900-03-15"
+
+    mock_config.caption.hashtags = []
+    mock_config.caption.hashtags_separator = "\n\n"
+
+    result = format_caption_gallica(article, mock_config)
+    assert "Gazette" in result
+
+
 @freeze_time("2026-03-21")
 def test_time_ago_from_datetime_fallback_months():
     """Fallback 1-11 mois → 'Il y a N mois'. [IMAGE_GENERATION.md]"""

@@ -124,3 +124,150 @@ async def test_rss_max_age_filters_old_articles(db_session, mock_config):
     urls = [a.article_url for a in articles]
     assert "https://example.com/recent" in urls
     assert "https://example.com/old" not in urls
+
+
+async def test_rss_skips_entry_without_published_parsed(db_session, mock_config):
+    """Entry sans published_parsed → ignorée. [DS-2.3]"""
+    from ancnouv.fetchers.rss import RssFetcher
+    import time
+
+    recent = time.strptime("2026-01-01", "%Y-%m-%d")
+    entries = [
+        {"title": "Sans date", "link": "https://example.com/nodate", "summary": "", "published_parsed": None},
+        {"title": "Avec date", "link": "https://example.com/withdate", "summary": "", "published_parsed": recent},
+    ]
+    mock_config.content.rss.feeds = [
+        type("Feed", (), {"url": "https://example.com/feed.rss", "name": "Test"})()
+    ]
+    mock_config.content.rss.enabled = True
+
+    with patch("feedparser.parse", return_value={"entries": entries, "bozo": False}):
+        articles = await RssFetcher().fetch_all(mock_config)
+
+    assert len(articles) == 1
+    assert articles[0].article_url == "https://example.com/withdate"
+
+
+async def test_rss_skips_entry_with_short_title(db_session, mock_config):
+    """Entry avec titre < 5 chars → ignorée. [DS-2.4]"""
+    from ancnouv.fetchers.rss import RssFetcher
+    import time
+
+    recent = time.strptime("2026-01-01", "%Y-%m-%d")
+    entries = [
+        {"title": "AB", "link": "https://example.com/short", "summary": "", "published_parsed": recent},
+        {"title": "Titre valide", "link": "https://example.com/valid", "summary": "", "published_parsed": recent},
+    ]
+    mock_config.content.rss.feeds = [
+        type("Feed", (), {"url": "https://example.com/feed.rss", "name": "Test"})()
+    ]
+    mock_config.content.rss.enabled = True
+
+    with patch("feedparser.parse", return_value={"entries": entries, "bozo": False}):
+        articles = await RssFetcher().fetch_all(mock_config)
+
+    assert len(articles) == 1
+    assert articles[0].article_url == "https://example.com/valid"
+
+
+async def test_rss_skips_entry_without_url(db_session, mock_config):
+    """Entry sans URL → ignorée. [DS-2.4]"""
+    from ancnouv.fetchers.rss import RssFetcher
+    import time
+
+    recent = time.strptime("2026-01-01", "%Y-%m-%d")
+    entries = [
+        {"title": "Pas d'URL", "link": "", "summary": "", "published_parsed": recent},
+        {"title": "Avec URL", "link": "https://example.com/ok", "summary": "", "published_parsed": recent},
+    ]
+    mock_config.content.rss.feeds = [
+        type("Feed", (), {"url": "https://example.com/feed.rss", "name": "Test"})()
+    ]
+    mock_config.content.rss.enabled = True
+
+    with patch("feedparser.parse", return_value={"entries": entries, "bozo": False}):
+        articles = await RssFetcher().fetch_all(mock_config)
+
+    assert len(articles) == 1
+
+
+async def test_rss_extract_image_from_media_thumbnail(db_session, mock_config):
+    """Image extraite depuis media_thumbnail. [DS-2.3]"""
+    from ancnouv.fetchers.rss import RssFetcher
+    import time
+
+    recent = time.strptime("2026-01-01", "%Y-%m-%d")
+    entries = [{
+        "title": "Article avec thumbnail",
+        "link": "https://example.com/thumb",
+        "summary": "",
+        "published_parsed": recent,
+        "media_thumbnail": [{"url": "https://example.com/img.jpg"}],
+    }]
+    mock_config.content.rss.feeds = [
+        type("Feed", (), {"url": "https://example.com/feed.rss", "name": "Test"})()
+    ]
+    mock_config.content.rss.enabled = True
+
+    with patch("feedparser.parse", return_value={"entries": entries, "bozo": False}):
+        articles = await RssFetcher().fetch_all(mock_config)
+
+    assert len(articles) == 1
+    assert articles[0].image_url == "https://example.com/img.jpg"
+
+
+async def test_rss_extract_image_from_enclosures(db_session, mock_config):
+    """Image extraite depuis enclosures. [DS-2.3]"""
+    from ancnouv.fetchers.rss import RssFetcher
+    import time
+
+    recent = time.strptime("2026-01-01", "%Y-%m-%d")
+    entries = [{
+        "title": "Article avec enclosure",
+        "link": "https://example.com/enc",
+        "summary": "",
+        "published_parsed": recent,
+        "enclosures": [{"type": "image/jpeg", "href": "https://example.com/enc.jpg"}],
+    }]
+    mock_config.content.rss.feeds = [
+        type("Feed", (), {"url": "https://example.com/feed.rss", "name": "Test"})()
+    ]
+    mock_config.content.rss.enabled = True
+
+    with patch("feedparser.parse", return_value={"entries": entries, "bozo": False}):
+        articles = await RssFetcher().fetch_all(mock_config)
+
+    assert len(articles) == 1
+    assert articles[0].image_url == "https://example.com/enc.jpg"
+
+
+async def test_rss_skips_bozo_connection_error(db_session, mock_config):
+    """Flux avec bozo + ConnectionError → ignoré. [DS-2.3]"""
+    from ancnouv.fetchers.rss import RssFetcher
+
+    mock_config.content.rss.feeds = [
+        type("Feed", (), {"url": "https://example.com/broken.rss", "name": "Broken"})()
+    ]
+    mock_config.content.rss.enabled = True
+
+    with patch("feedparser.parse", return_value={
+        "entries": [], "bozo": True, "bozo_exception": ConnectionError("refused")
+    }):
+        articles = await RssFetcher().fetch_all(mock_config)
+
+    assert articles == []
+
+
+async def test_rss_network_exception_continues(db_session, mock_config):
+    """Exception réseau sur asyncio.to_thread → log warning + continue. [DS-2.3]"""
+    from ancnouv.fetchers.rss import RssFetcher
+
+    mock_config.content.rss.feeds = [
+        type("Feed", (), {"url": "https://example.com/feed.rss", "name": "Test"})()
+    ]
+    mock_config.content.rss.enabled = True
+
+    with patch("asyncio.to_thread", side_effect=Exception("timeout réseau")):
+        articles = await RssFetcher().fetch_all(mock_config)
+
+    assert articles == []
