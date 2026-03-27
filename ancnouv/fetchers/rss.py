@@ -71,11 +71,15 @@ class RssFetcher:
                 if published_at < max_age_cutoff:
                     continue
 
-                # [DS-2.3] Extraction image_url en deux passes
+                # [DS-2.3] Extraction image_url en trois passes
                 image_url: str | None = None
                 thumbnails = entry.get("media_thumbnail", [])
                 if thumbnails:
                     image_url = thumbnails[0].get("url") or thumbnails[0].get("href")
+                if not image_url:
+                    media_content = entry.get("media_content", [])
+                    if media_content:
+                        image_url = media_content[0].get("url") or media_content[0].get("href")
                 if not image_url:
                     enclosures = entry.get("enclosures", [])
                     if enclosures and enclosures[0].get("type", "").startswith("image/"):
