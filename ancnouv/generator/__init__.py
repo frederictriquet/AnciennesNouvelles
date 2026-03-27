@@ -80,25 +80,36 @@ async def generate_post(session: AsyncSession) -> Post | None:
         logger.info("Aucune source disponible pour generate_post — retourne None")
         return None
 
+    source_type = "rss" if isinstance(source, RssArticle) else "gallica" if isinstance(source, GallicaArticle) else "event"
+    logger.info("Source sélectionnée : type=%s id=%s", source_type, source.id)
+
     # Téléchargement thumbnail (async)
-    thumbnail = await fetch_thumbnail(getattr(source, "image_url", None))
+    image_url = getattr(source, "image_url", None)
+    logger.info("Thumbnail : %s", image_url[:80] if image_url else "aucune")
+    thumbnail = await fetch_thumbnail(image_url)
+    logger.info("Thumbnail : %s", "OK" if thumbnail else "absent (génération sans photo)")
 
     # Génération image feed (synchrone — ~100ms acceptable sur RPi4) [IMAGE_GENERATION.md]
     output_path, story_path = get_image_path(config)
+    logger.info("Génération image feed…")
     generate_image(source, config, output_path, thumbnail=thumbnail)
+    logger.info("Image feed générée : %s", output_path)
 
     # Génération image Story si activé [SPEC-7, RF-7.3.1]
     story_image_path: str | None = None
     if config.stories.enabled:
+        logger.info("Génération Story…")
         try:
             generate_story_image(source, config, story_path, thumbnail=thumbnail)
             story_image_path = str(story_path)
+            logger.info("Story générée : %s", story_path)
         except Exception as exc:
             logger.warning("Génération Story échouée (non-bloquant) : %s", exc)
 
     # Génération vidéo Reel si activé [SPEC-8, RF-8.3]
     reel_video_path: str | None = None
     if config.reels.enabled:
+        logger.info("Génération Reel…")
         try:
             from ancnouv.generator.video import generate_reel_video, get_reel_output_path, get_shell_output_path
             from ancnouv.generator.image import generate_shell_image
@@ -115,7 +126,9 @@ async def generate_post(session: AsyncSession) -> Post | None:
                 candidates = list(audio_dir.glob("*.mp3")) if audio_dir.exists() else []
                 if candidates:
                     audio = random.choice(candidates)
-                    logger.debug("Audio Reel sélectionné : %s", audio.name)
+                    logger.info("Audio Reel sélectionné : %s", audio.name)
+                else:
+                    logger.info("Audio Reel : aucun fichier dans %s — sans audio", audio_dir)
             # Image shell (fond+chrome sans texte) pour l'animation fade+reveal
             # La miniature est incluse dans le shell : révélée en phase 1, texte en phase 2
             shell_path = get_shell_output_path(output_path)
@@ -123,8 +136,10 @@ async def generate_post(session: AsyncSession) -> Post | None:
             try:
                 generate_shell_image(source, config, shell_path, thumbnail=thumbnail)
                 shell_image_path = shell_path
+                logger.info("Shell image générée : %s", shell_path)
             except Exception as shell_exc:
                 logger.warning("Génération shell image échouée (fallback sans shell) : %s", shell_exc)
+            logger.info("Encodage ffmpeg Reel…")
             await generate_reel_video(
                 output_path,
                 reel_out,
@@ -134,6 +149,7 @@ async def generate_post(session: AsyncSession) -> Post | None:
                 fps=config.reels.fps,
             )
             reel_video_path = str(reel_out)
+            logger.info("Reel générée : %s", reel_out)
         except Exception as exc:
             logger.error("Génération Reel échouée : %s", exc, exc_info=True)
 

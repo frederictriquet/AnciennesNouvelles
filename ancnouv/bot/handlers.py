@@ -535,6 +535,8 @@ async def cmd_force(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     from ancnouv.generator import generate_post
 
     config: Config = context.bot_data["config"]
+    user = update.effective_user
+    logger.info("cmd_force déclenché par user_id=%s username=%s", user.id if user else "?", user.username if user else "?")
 
     # Ack immédiat — la génération peut prendre plusieurs minutes (Reel vidéo)
     await update.effective_message.reply_text("Génération en cours…")
