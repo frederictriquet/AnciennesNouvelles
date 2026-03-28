@@ -42,7 +42,7 @@ REGISTRY: list[SettingMeta] = [
                 validation={"min": 1}, section="content"),
     SettingMeta("content.wikipedia_event_types", "Types d'événements Wikipedia", "list",
                 ["events"],
-                description="Valeurs possibles : events, births, deaths, holidays, selected",
+                description="Une valeur par ligne (ou virgules) : events, births, deaths, holidays, selected",
                 section="content"),
     SettingMeta("content.wikipedia_min_events", "Minimum d'événements Wikipedia", "int", 3,
                 validation={"min": 1}, section="content"),
@@ -165,8 +165,12 @@ def value_from_form(raw_form: str, value_type: ValueType) -> Any:
     if value_type == "float":
         return float(raw_form)
     if value_type == "list":
-        # Textarea : une valeur par ligne → liste de strings
-        lines = [l.strip() for l in raw_form.splitlines() if l.strip()]
+        # Textarea : une valeur par ligne (ou virgule-séparé sur une ligne) → liste de strings
+        # Accepter les deux formats pour éviter les erreurs silencieuses
+        if "\n" in raw_form:
+            lines = [l.strip() for l in raw_form.splitlines() if l.strip()]
+        else:
+            lines = [l.strip() for l in raw_form.split(",") if l.strip()]
         return lines
     if value_type == "dict":
         return json.loads(raw_form)
