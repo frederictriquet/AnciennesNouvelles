@@ -3,7 +3,6 @@ from ancnouv.config import Config
 from ancnouv.db.session import init_db, get_session
 from ancnouv.db.config_store import get_all_overrides
 from ancnouv.config_loader import apply_dot_overrides
-
 async def check():
     config = Config()
     db_path = os.environ.get('ANCNOUV_DB_PATH', '') or f'{config.data_dir}/{config.database.filename}'
@@ -17,5 +16,4 @@ async def check():
     print('content apres merge :', merged.get('content', {}).get('wikipedia_event_types'))
     effective = type(config).model_validate(merged)
     print('effective.content.wikipedia_event_types :', effective.content.wikipedia_event_types)
-
 asyncio.run(check())
