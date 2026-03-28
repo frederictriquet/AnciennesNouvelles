@@ -89,6 +89,8 @@ async def _reload() -> Any:
             effective = baseline
 
     except Exception as exc:
+        import sys
+        print(f"  [config_loader] ERREUR chargement overrides : {exc!r}", file=sys.stderr)
         logger.warning("get_effective_config : erreur chargement overrides (%s) — cache conservé", exc)
         if _cache_config is not None:
             return _cache_config
