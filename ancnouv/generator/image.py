@@ -484,7 +484,13 @@ def _generate_image_inner(
                 source.year, source.month, source.day
             )
             date_str = _format_date_int(source.year, source.month, source.day)
-        text = truncate_for_image(getattr(source, "description", "") or "", max_chars=1200)
+        raw_desc = getattr(source, "description", "") or ""
+        event_type = getattr(source, "event_type", "event")
+        if event_type == "deaths":
+            raw_desc = f"Décès : {raw_desc}"
+        elif event_type == "births":
+            raw_desc = f"Naissance : {raw_desc}"
+        text = truncate_for_image(raw_desc, max_chars=1200)
         text = text[:1].upper() + text[1:] if text else text
         if getattr(source, "source_lang", "fr") == "en":
             source_text = config.caption.source_template_en

@@ -81,7 +81,13 @@ def format_caption(event: Event, config: Config) -> str:
     time_ago = _time_ago_int(event.year, event.month, event.day)
     date_str = _format_date_int(event.year, event.month, event.day)
 
-    description = truncate_caption(event.description)
+    # Préfixe contextuel pour naissances et décès [SPEC-2.3]
+    raw_desc = event.description
+    if event.event_type == 'deaths':
+        raw_desc = f'Décès : {raw_desc}'
+    elif event.event_type == 'births':
+        raw_desc = f'Naissance : {raw_desc}'
+    description = truncate_caption(raw_desc)
 
     if event.source_lang == "en":
         source = config.caption.source_template_en
