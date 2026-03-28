@@ -82,9 +82,7 @@ async def _reload() -> Any:
             overrides_flat = await get_all_overrides(session)
 
         if overrides_flat:
-            base_dict = baseline.model_dump()
-            merged = apply_dot_overrides(base_dict, overrides_flat)
-            effective = type(baseline).model_validate(merged)
+            effective = apply_dot_overrides_config(baseline, overrides_flat)
         else:
             effective = baseline
 
@@ -101,7 +99,36 @@ async def _reload() -> Any:
     return effective
 
 
-# ─── apply_dot_overrides ─────────────────────────────────────────────────────────
+# ─── apply_dot_overrides (Config instance) ───────────────────────────────────────
+
+def apply_dot_overrides_config(config: Any, overrides: dict[str, Any]) -> Any:
+    """Applique les overrides dot-path sur une instance Config via model_copy. [DASHBOARD.md]
+
+    Utilise model_copy() au lieu de model_validate() pour éviter la réinitialisation
+    des BaseSettings imbriqués depuis leurs sources (env, defaults). [DASH-A4]
+    """
+    result = config
+    for dot_key, value in overrides.items():
+        try:
+            result = _apply_single_override(result, dot_key.split('.'), value)
+        except Exception:
+            logger.warning(
+                'apply_dot_overrides_config : chemin %r introuvable dans la config — override ignoré',
+                dot_key,
+            )
+    return result
+
+
+def _apply_single_override(config: Any, segments: list[str], value: Any) -> Any:
+    """Applique récursivement un override via model_copy sans retrigger l'init BaseSettings."""
+    if len(segments) == 1:
+        return config.model_copy(update={segments[0]: value})
+    nested = getattr(config, segments[0])
+    updated_nested = _apply_single_override(nested, segments[1:], value)
+    return config.model_copy(update={segments[0]: updated_nested})
+
+
+# ─── apply_dot_overrides (dict) ──────────────────────────────────────────────────
 
 def apply_dot_overrides(base: dict[str, Any], overrides: dict[str, Any]) -> dict[str, Any]:
     """Merge des overrides dot-path dans le dict base (deep). [DASHBOARD.md — Contrat]
