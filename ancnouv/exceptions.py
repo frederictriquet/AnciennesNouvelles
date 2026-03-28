@@ -1,6 +1,5 @@
 # Hiérarchie des exceptions custom [ARCH-21]
 
-
 class AncNouvError(Exception):
     """Exception de base de l'application."""
 
