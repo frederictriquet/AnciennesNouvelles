@@ -5,12 +5,16 @@ import logging
 import random
 from datetime import date, datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
 from uuid import uuid4
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ancnouv.db.models import Event, GallicaArticle, Post, RssArticle
+
+if TYPE_CHECKING:
+    from ancnouv.config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -27,19 +31,16 @@ def get_image_path(config) -> tuple[Path, Path]:
     return images_dir / f"{uid}.jpg", images_dir / f"{uid}_story.jpg"
 
 
-async def generate_post(session: AsyncSession) -> Post | None:
+async def generate_post(session: AsyncSession, config: "Config") -> Post | None:
     """Génère un post (sélection, image, légende) et l'insère en DB. [SPEC-3.2, DS-3]
 
-    Config obtenue via get_config() (singleton scheduler/context.py). [IMAGE_GENERATION.md]
+    Config passée en argument par l'appelant (job_generate ou cmd_force).
     Sélection hybride A+B selon mix_ratio. Fallback si la source tirée est vide. [DS-3]
     Guard max_pending_posts : retourne None si déjà atteint. [RF-3.2.7, T-08]
     """
     from ancnouv.generator.caption import format_caption, format_caption_rss
     from ancnouv.generator.image import fetch_thumbnail, generate_image, generate_story_image
     from ancnouv.generator.selector import get_effective_query_params, select_article, select_event, select_gallica_article
-    from ancnouv.scheduler.context import get_config
-
-    config = get_config()
 
     # [RF-3.2.7, T-08] Guard max_pending_posts
     result = await session.execute(

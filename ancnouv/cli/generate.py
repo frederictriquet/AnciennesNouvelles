@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import platform
 import subprocess
 import sys
@@ -9,6 +10,8 @@ from datetime import date, datetime
 from pathlib import Path
 
 from ancnouv.config import Config
+
+logger = logging.getLogger(__name__)
 
 
 # ─── Sources fictives ─────────────────────────────────────────────────────────
@@ -195,5 +198,5 @@ def _open_file(path: Path) -> None:
             subprocess.call(["open", str(path)])
         else:
             subprocess.call(["xdg-open", str(path)])
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Ouverture fichier échouée (headless ?) : %s", exc)

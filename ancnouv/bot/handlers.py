@@ -88,8 +88,8 @@ def _get_next_run_str(config: "Config") -> str:
         if job and job.next_run_time:
             tz = ZoneInfo(config.scheduler.timezone)
             return job.next_run_time.astimezone(tz).strftime("%Hh%M")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("_get_next_run_str : %s", exc)
     return "—"
 
 
@@ -485,7 +485,8 @@ async def cmd_pending(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
                 created_at = created_at_raw
             delta = now_utc - created_at
             hours = int(delta.total_seconds()) // 3600
-        except Exception:
+        except Exception as exc:
+            logger.debug("Calcul âge post échoué (best-effort) : %s", exc)
             hours = 0
 
         extract = (caption or "")[:50]
@@ -543,7 +544,7 @@ async def cmd_force(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Session unique pour generate_post + send_approval_request (post attaché à la session)
     async with get_session() as session:
-        post = await generate_post(session)
+        post = await generate_post(session, config)
 
         if post is None:
             await update.effective_message.reply_text(
@@ -718,8 +719,8 @@ async def handle_approve(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         if post is None or post.status != "pending_approval":
             try:
                 await query.edit_message_text("Ce post n'est plus disponible.")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Édition message Telegram échouée (best-effort) : %s", exc)
             return
 
         # Verrou optimiste [TG-F5] : un seul admin peut approuver
@@ -747,8 +748,8 @@ async def handle_approve(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 await query.edit_message_text(
                     "Image introuvable — post non publiable."
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Édition message Telegram échouée (best-effort) : %s", exc)
             return
 
         # Vérification limite journalière [TELEGRAM_BOT.md — handle_approve étape 6]
@@ -776,8 +777,8 @@ async def handle_approve(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                     "directement UPDATE posts SET status='approved' WHERE status='queued' "
                     "puis /retry."
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Édition message Telegram échouée (best-effort) : %s", exc)
             return
 
         # Publication [TELEGRAM_BOT.md — handle_approve étape 7]
@@ -797,8 +798,8 @@ async def handle_approve(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                         message_id=mid,
                         reply_markup=None,
                     )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Édition message Telegram échouée (best-effort) : %s", exc)
 
         # Résultat sur le message de l'admin courant [TG-F10]
         if post.status == "published":
@@ -830,8 +831,8 @@ async def handle_approve(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
         try:
             await query.edit_message_text(result_text)
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Édition message Telegram échouée (best-effort) : %s", exc)
 
 
 @authorized_only
@@ -851,8 +852,8 @@ async def handle_reject(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         if post is None or post.status != "pending_approval":
             try:
                 await query.edit_message_text("Ce post n'est plus disponible.")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Édition message Telegram échouée (best-effort) : %s", exc)
             return
 
         post.status = "rejected"
@@ -871,8 +872,8 @@ async def handle_reject(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     try:
         await query.edit_message_text("Post rejeté.")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Édition message Telegram échouée (best-effort) : %s", exc)
 
 
 @authorized_only
@@ -895,8 +896,8 @@ async def handle_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         if post is None or post.status != "pending_approval":
             try:
                 await query.edit_message_text("Ce post n'est plus disponible.")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Édition message Telegram échouée (best-effort) : %s", exc)
             return
 
         # Séquençage : commit du skip AVANT generate_post [SPEC-3.3.2]
@@ -905,8 +906,8 @@ async def handle_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
 
     try:
         await query.edit_message_text("Post ignoré.")
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Édition message Telegram échouée (best-effort) : %s", exc)
 
     # Nouvelle session pour generate_post + send_approval_request [TELEGRAM_BOT.md]
     # Ne pas réutiliser la session du skip (anti-pattern session longue).
@@ -914,7 +915,7 @@ async def handle_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
     from ancnouv.generator import generate_post
 
     async with get_session() as new_session:
-        new_post = await generate_post(new_session)
+        new_post = await generate_post(new_session, config)
 
         if new_post is None:
             await notify_all(
@@ -943,8 +944,8 @@ async def handle_queue_it(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         if post is None or post.status != "pending_approval":
             try:
                 await query.edit_message_text("Ce post n'est plus disponible.")
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Édition message Telegram échouée (best-effort) : %s", exc)
             return
 
         # Guard taille max de la file [RF-7ter.5]
@@ -958,8 +959,8 @@ async def handle_queue_it(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                     f"File d'attente pleine ({queue_count}/{config.scheduler.max_queue_size}). "
                     "Attendez la publication d'un post avant d'en ajouter un nouveau."
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Édition message Telegram échouée (best-effort) : %s", exc)
             return
 
         # Verrou optimiste [TG-F5]
@@ -1003,15 +1004,15 @@ async def handle_queue_it(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                     message_id=mid,
                     reply_markup=None,
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("Édition message Telegram échouée (best-effort) : %s", exc)
 
     try:
         await query.edit_message_text(
             f"Ajouté à la file d'attente (position {position})."
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("Édition message Telegram échouée (best-effort) : %s", exc)
 
 
 @authorized_only
@@ -1045,7 +1046,8 @@ async def cmd_queue(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
                 sf = datetime.fromisoformat(str(scheduled_for_raw))
                 sf_local = sf.replace(tzinfo=timezone.utc).astimezone(tz)
                 time_str = f"planifié {sf_local.strftime('%d/%m à %Hh%M')}"
-            except Exception:
+            except Exception as exc:
+                logger.debug("Formatage date planification échoué (best-effort) : %s", exc)
                 time_str = "planifié"
         else:
             time_str = f"position {i}"
@@ -1126,8 +1128,8 @@ async def handle_new_caption(
                         message_id=mid,
                         reply_markup=None,
                     )
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Édition message Telegram échouée (best-effort) : %s", exc)
 
         # Réinitialiser telegram_message_ids et re-envoyer [TELEGRAM_BOT.md]
         post.telegram_message_ids = json.dumps({})

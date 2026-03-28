@@ -352,7 +352,8 @@ def _open_image(path: Path, skip: bool) -> None:
         try:
             subprocess.call(cmd, stderr=subprocess.DEVNULL)
             return
-        except FileNotFoundError:
+        except FileNotFoundError as exc:
+            print(f"  Commande {cmd[0]!r} introuvable : {exc}", file=sys.stderr)
             continue
 
 

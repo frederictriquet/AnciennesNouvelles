@@ -218,7 +218,7 @@ async def test_generate_post_creates_post(db_engine, db_session, mock_config):
         patch("ancnouv.generator.image.fetch_thumbnail", new=AsyncMock(return_value=None)),
     ):
         from ancnouv.generator import generate_post
-        post = await generate_post(db_session)
+        post = await generate_post(db_session, mock_config)
 
     assert post is not None
     assert post.status == "pending_approval"
@@ -235,7 +235,7 @@ async def test_generate_post_no_stock(db_engine, db_session, mock_config):
     set_config(mock_config)
 
     from ancnouv.generator import generate_post
-    post = await generate_post(db_session)
+    post = await generate_post(db_session, mock_config)
 
     assert post is None
     result = await db_session.execute(select(func.count(Post.id)))
@@ -261,7 +261,7 @@ async def test_generate_post_max_pending_guard(db_engine, db_session, db_event, 
     await db_session.commit()
 
     from ancnouv.generator import generate_post
-    result = await generate_post(db_session)
+    result = await generate_post(db_session, mock_config)
     assert result is None
 
 
@@ -279,7 +279,7 @@ async def test_generate_post_mode_b_selects_rss(db_engine, db_session, db_articl
         patch("random.random", return_value=0.01),  # 0.01 < 0.99 → Mode B
     ):
         from ancnouv.generator import generate_post
-        post = await generate_post(db_session)
+        post = await generate_post(db_session, mock_config)
 
     assert post is not None
     assert post.article_id == db_article.id
@@ -321,7 +321,7 @@ async def test_generate_post_hybrid_fallback(db_engine, db_session, mock_config)
         patch("random.random", return_value=0.01),
     ):
         from ancnouv.generator import generate_post
-        post = await generate_post(db_session)
+        post = await generate_post(db_session, mock_config)
 
     assert post is not None
     assert post.event_id == ev.id

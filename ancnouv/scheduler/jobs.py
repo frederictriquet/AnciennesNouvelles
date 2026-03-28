@@ -408,7 +408,7 @@ async def _job_generate_inner() -> None:
             return
 
         # 3. Génération
-        post = await generate_post(session)
+        post = await generate_post(session, config)
 
     if post is None:
         await notify_all(
@@ -935,11 +935,11 @@ async def job_fetch_gallica() -> None:
 async def _job_fetch_gallica_inner() -> None:
     from datetime import date
 
+    from ancnouv.config_loader import get_effective_config
     from ancnouv.db.session import get_session
     from ancnouv.fetchers.gallica import GallicaFetcher
-    from ancnouv.scheduler.context import get_config
 
-    config = get_config()
+    config = await get_effective_config()
 
     if not config.gallica.enabled:
         return
