@@ -60,12 +60,19 @@ async def _reload_requested() -> bool:
 
 
 async def _reload() -> Any:
-    """Charge la Config baseline puis applique les overrides DB. [DASHBOARD.md — Principe]"""
+    """Charge la Config baseline puis applique les overrides DB. [DASHBOARD.md — Principe]
+
+    La baseline est toujours Config() — ne dépend pas du scheduler, utilisable en CLI.
+    """
     global _cache_config, _cache_timestamp
 
-    from ancnouv.scheduler.context import get_config
-
-    baseline = get_config()
+    # Utiliser le singleton scheduler si initialisé (app running), sinon Config() direct (CLI/tests)
+    try:
+        from ancnouv.scheduler.context import get_config
+        baseline = get_config()
+    except RuntimeError:
+        from ancnouv.config import Config
+        baseline = Config()
 
     try:
         from ancnouv.db.config_store import get_all_overrides
