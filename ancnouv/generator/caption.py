@@ -83,9 +83,9 @@ def format_caption(event: Event, config: Config) -> str:
 
     # Préfixe contextuel pour naissances et décès [SPEC-2.3]
     raw_desc = event.description
-    if event.event_type == 'deaths':
+    if event.event_type == 'death':
         raw_desc = f'Décès : {raw_desc}'
-    elif event.event_type == 'births':
+    elif event.event_type == 'birth':
         raw_desc = f'Naissance : {raw_desc}'
     description = truncate_caption(raw_desc)
 
