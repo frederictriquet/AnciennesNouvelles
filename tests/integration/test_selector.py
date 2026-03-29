@@ -101,6 +101,23 @@ async def test_select_event_window_outside_returns(db_session, mock_config):
     assert result is not None
 
 
+async def test_select_event_date_window(db_session, mock_config):
+    """Fenêtre de dates : event sur J-2 sélectionnable via liste de dates. [content.date_window_days]"""
+    params = EffectiveQueryParams(event_types=["events"], use_fallback_en=False, dedup_policy="never", dedup_window=365)
+    # Événement sur le 19 mars — 2 jours avant le 21
+    await _make_event(db_session, 3, 19, 1900, "Événement J-2")
+
+    # Sans fenêtre (date unique) → non trouvé
+    result = await select_event(db_session, date(2026, 3, 21), params)
+    assert result is None
+
+    # Avec fenêtre ±2 jours → trouvé
+    dates = [date(2026, 3, 21) + timedelta(days=i) for i in range(-2, 3)]
+    result = await select_event(db_session, dates, params)
+    assert result is not None
+    assert result.day == 19
+
+
 # ─── select_article ──────────────────────────────────────────────────────────────
 
 async def test_select_article_respects_delay(db_session, mock_config):

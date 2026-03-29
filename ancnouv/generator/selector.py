@@ -89,18 +89,27 @@ async def get_effective_query_params(
 
 async def select_event(
     session: AsyncSession,
-    target_date: date,
+    target_dates: "list[date] | date",
     effective_params: EffectiveQueryParams,
 ) -> Event | None:
-    """Sélection aléatoire d'un événement disponible pour target_date. [TRANSVERSAL-1, SPEC-3.2.1]
+    """Sélection aléatoire d'un événement disponible pour une ou plusieurs dates. [TRANSVERSAL-1, SPEC-3.2.1]
 
+    target_dates : une date unique ou une liste (fenêtre ±date_window_days). [content.date_window_days]
     Politique de déduplication appliquée depuis effective_params.
     - never : published_count = 0
     - window : last_used_at IS NULL OU < cutoff
     - always : sans filtre dédup
     """
+    # Normalisation en liste
+    if isinstance(target_dates, date):
+        dates = [target_dates]
+    else:
+        dates = list(target_dates)
+    if not dates:
+        return None
+
     dedup_policy = effective_params.dedup_policy
-    params: dict = {"month": target_date.month, "day": target_date.day}
+    params: dict = {}
 
     if dedup_policy == "never":
         dedup_clause = "AND published_count = 0"
@@ -111,12 +120,20 @@ async def select_event(
     else:  # "always"
         dedup_clause = ""
 
+    # Clause de dates dynamique : (month=:m0 AND day=:d0) OR ...
+    date_parts = []
+    for i, d in enumerate(dates):
+        date_parts.append(f"(month = :m{i} AND day = :d{i})")
+        params[f"m{i}"] = d.month
+        params[f"d{i}"] = d.day
+    date_clause = " OR ".join(date_parts)
+
     result = await session.execute(
         text(
-            "SELECT id FROM events "
-            "WHERE month = :month AND day = :day AND status = 'available' "
+            f"SELECT id FROM events "
+            f"WHERE ({date_clause}) AND status = 'available' "
             f"{dedup_clause} "
-            "ORDER BY RANDOM() LIMIT 1"
+            f"ORDER BY RANDOM() LIMIT 1"
         ),
         params,
     )

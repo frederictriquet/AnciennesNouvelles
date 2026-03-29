@@ -37,10 +37,12 @@ async def run_fetch(config: Config, prefetch: bool = False) -> int:
     print(f"  Types d'événements : {effective_params.event_types}")
 
     today = date.today()
+    window = effective_config.content.date_window_days
     if prefetch:
-        dates = [today + timedelta(days=i) for i in range(effective_config.content.prefetch_days)]
+        # Couvre today−window → today+prefetch_days pour alimenter la fenêtre symétrique
+        dates = [today + timedelta(days=i) for i in range(-window, effective_config.content.prefetch_days)]
     else:
-        dates = [today]
+        dates = [today + timedelta(days=i) for i in range(-window, window + 1)]
 
     total_stored = 0
     errors = 0

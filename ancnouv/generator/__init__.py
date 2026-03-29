@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import random
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING
 from uuid import uuid4
@@ -59,6 +59,10 @@ async def generate_post(session: AsyncSession, config: "Config") -> Post | None:
     source = None
     today = date.today()
 
+    # Fenêtre de dates ±date_window_days autour d'aujourd'hui [content.date_window_days]
+    window = config.content.date_window_days
+    target_dates = [today + timedelta(days=i) for i in range(-window, window + 1)]
+
     # Tirage aléatoire pour Mode C (Gallica)
     if config.gallica.enabled and random.random() < config.gallica.mix_ratio:
         source = await select_gallica_article(session, config, {})
@@ -69,7 +73,7 @@ async def generate_post(session: AsyncSession, config: "Config") -> Post | None:
 
     # Mode A (Wikipedia) par défaut
     if source is None:
-        source = await select_event(session, today, effective_params)
+        source = await select_event(session, target_dates, effective_params)
 
     # Fallback : B si A vide, C si A+B vides [DS-3]
     if source is None and config.content.rss.enabled:

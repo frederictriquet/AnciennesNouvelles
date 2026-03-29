@@ -184,6 +184,7 @@ def mock_config():
     config.content.low_stock_threshold = 3
     config.content.wikipedia_event_types = ["events"]
     config.content.wikipedia_min_events = 3
+    config.content.date_window_days = 0
     config.content.prefetch_days = 30
     config.content.image_retention_days = 7
     config.instagram.enabled = False

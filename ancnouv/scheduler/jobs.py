@@ -288,7 +288,8 @@ async def job_fetch_wiki() -> None:
 
     fetcher = WikipediaFetcher(config, effective_params)
 
-    for i in range(config.content.prefetch_days):
+    window = config.content.date_window_days
+    for i in range(-window, config.content.prefetch_days):
         target = today + timedelta(days=i)
         # [SC-M1] Retry x3 sur OperationalError (contention SQLite à 2h)
         for attempt in range(3):

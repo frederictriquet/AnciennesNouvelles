@@ -56,6 +56,7 @@ class RssConfig(BaseSettings):
 
 class ContentConfig(BaseSettings):
     prefetch_days: int = Field(default=30, ge=1)
+    date_window_days: int = Field(default=0, ge=0)
     wikipedia_event_types: list[str] = ["events"]
     wikipedia_lang_primary: str = "fr"
     wikipedia_lang_fallback: str = "en"

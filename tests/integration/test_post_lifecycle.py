@@ -327,6 +327,45 @@ async def test_generate_post_hybrid_fallback(db_engine, db_session, mock_config)
     assert post.event_id == ev.id
 
 
+async def test_generate_post_date_window(db_engine, db_session, mock_config):
+    """date_window_days=2 → événement J-2 sélectionnable. [content.date_window_days]"""
+    from datetime import date, timedelta
+    from ancnouv.db.utils import compute_content_hash
+    from ancnouv.scheduler.context import set_config
+
+    mock_config.content.date_window_days = 2
+    set_config(mock_config)
+
+    # Événement situé 2 jours avant aujourd'hui — hors de la fenêtre par défaut (0)
+    j_minus_2 = date.today() - timedelta(days=2)
+    ev = Event(
+        source="wikipedia",
+        source_lang="fr",
+        event_type="event",
+        month=j_minus_2.month,
+        day=j_minus_2.day,
+        year=1900,
+        description="Événement J-2.",
+        content_hash=compute_content_hash("Événement J-2."),
+        status="available",
+        published_count=0,
+        fetched_at=datetime.now(timezone.utc).replace(tzinfo=None),
+    )
+    db_session.add(ev)
+    await db_session.commit()
+    await db_session.refresh(ev)
+
+    with (
+        patch("ancnouv.generator.image.generate_image"),
+        patch("ancnouv.generator.image.fetch_thumbnail", new=AsyncMock(return_value=None)),
+    ):
+        from ancnouv.generator import generate_post
+        post = await generate_post(db_session, mock_config)
+
+    assert post is not None
+    assert post.event_id == ev.id
+
+
 # ─── Compteur journalier — race condition ────────────────────────────────────────
 
 async def test_daily_counter_race_condition(tmp_path):

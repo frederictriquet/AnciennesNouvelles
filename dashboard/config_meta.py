@@ -40,6 +40,9 @@ REGISTRY: list[SettingMeta] = [
     # content
     SettingMeta("content.prefetch_days", "Jours de prefetch", "int", 30,
                 validation={"min": 1}, section="content"),
+    SettingMeta("content.date_window_days", "Fenêtre de dates (±jours)", "int", 0,
+                description="0 = uniquement aujourd'hui. N = MM/JJ d'aujourd'hui ±N jours.",
+                validation={"min": 0, "max": 30}, section="content"),
     SettingMeta("content.wikipedia_event_types", "Types d'événements Wikipedia", "list",
                 ["events"],
                 description="Une valeur par ligne (ou virgules) : events, births, deaths, holidays, selected",
