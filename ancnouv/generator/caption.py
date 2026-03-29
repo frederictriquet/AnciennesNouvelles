@@ -30,23 +30,8 @@ def truncate_caption(text: str, max_chars: int = 300) -> str:
 
 
 def _time_ago_int(year: int, month: int, day: int) -> str:
-    """Formule temporelle depuis des entiers year/month/day. Gère les années négatives."""
-    today = date.today()
-    if year <= 0:
-        # Av. J.-C. : abs(year) + today.year [IMAGE_GENERATION.md]
-        delta = abs(year) + today.year
-        return f"Il y a {delta} ans"
-    if 1 <= year <= 9999:
-        try:
-            from ancnouv.utils.date_helpers import compute_time_ago
-            return compute_time_ago(date(year, month, day))
-        except (ValueError, OverflowError) as exc:
-            logger.debug("_format_time_ago caption : compute_time_ago(%d) — fallback (%s)", year, exc)
-    # Fallback (année hors plage date Python)
-    delta = today.year - year
-    if delta <= 0:
-        return "Il y a moins d'un an"
-    return "Il y a 1 an" if delta == 1 else f"Il y a {delta} ans"
+    from ancnouv.utils.date_helpers import time_ago_from_ymd
+    return time_ago_from_ymd(year, month, day)
 
 
 def _format_date_int(year: int, month: int, day: int) -> str:

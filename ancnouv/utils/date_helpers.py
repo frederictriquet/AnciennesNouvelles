@@ -1,7 +1,10 @@
 # Utilitaires de date [SPEC-2.2, docs/ARCHITECTURE.md — utils/date_helpers.py]
 from __future__ import annotations
 
+import logging
 from datetime import date
+
+logger = logging.getLogger(__name__)
 
 
 def compute_time_ago(event_date: date, today: date | None = None) -> str:
@@ -39,6 +42,24 @@ def compute_time_ago(event_date: date, today: date | None = None) -> str:
     if years == 1:
         return "Il y a 1 an"
     return f"Il y a {years} ans"
+
+
+def time_ago_from_ymd(year: int, month: int, day: int) -> str:
+    """Formule temporelle depuis des entiers year/month/day. Gère les années négatives."""
+    today = date.today()
+    if year <= 0:
+        # Av. J.-C. : abs(year) + today.year [IMAGE_GENERATION.md]
+        return f"Il y a {abs(year) + today.year} ans"
+    if 1 <= year <= 9999:
+        try:
+            return compute_time_ago(date(year, month, day))
+        except (ValueError, OverflowError) as exc:
+            logger.debug("time_ago_from_ymd : compute_time_ago(%d) — fallback (%s)", year, exc)
+    # Fallback (année hors plage date Python)
+    delta = today.year - year
+    if delta <= 0:
+        return "Il y a moins d'un an"
+    return "Il y a 1 an" if delta == 1 else f"Il y a {delta} ans"
 
 
 def format_historical_date(event_date: date) -> str:

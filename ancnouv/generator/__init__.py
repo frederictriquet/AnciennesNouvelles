@@ -59,10 +59,6 @@ async def generate_post(session: AsyncSession, config: "Config") -> Post | None:
     source = None
     today = date.today()
 
-    # Fenêtre de dates ±date_window_days autour d'aujourd'hui [content.date_window_days]
-    window = config.content.date_window_days
-    target_dates = [today + timedelta(days=i) for i in range(-window, window + 1)]
-
     # Tirage aléatoire pour Mode C (Gallica)
     if config.gallica.enabled and random.random() < config.gallica.mix_ratio:
         source = await select_gallica_article(session, config, {})
@@ -71,8 +67,10 @@ async def generate_post(session: AsyncSession, config: "Config") -> Post | None:
     if source is None and config.content.rss.enabled and random.random() < config.content.mix_ratio:
         source = await select_article(session, config, effective_params)
 
-    # Mode A (Wikipedia) par défaut
+    # Mode A (Wikipedia) par défaut — fenêtre ±date_window_days [content.date_window_days]
     if source is None:
+        window = config.content.date_window_days
+        target_dates = [today + timedelta(days=i) for i in range(-window, window + 1)]
         source = await select_event(session, target_dates, effective_params)
 
     # Fallback : B si A vide, C si A+B vides [DS-3]

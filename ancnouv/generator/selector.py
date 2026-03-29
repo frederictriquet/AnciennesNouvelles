@@ -100,7 +100,6 @@ async def select_event(
     - window : last_used_at IS NULL OU < cutoff
     - always : sans filtre dédup
     """
-    # Normalisation en liste
     if isinstance(target_dates, date):
         dates = [target_dates]
     else:
