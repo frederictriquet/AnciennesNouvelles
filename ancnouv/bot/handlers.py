@@ -528,7 +528,6 @@ async def cmd_resume(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
 async def cmd_force(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Génère un post immédiatement hors cycle. [TELEGRAM_BOT.md — cmd_force, SC-8]
 
-    Bypass max_pending_posts (pas de vérification avant generate_post).
     Ne bypass pas la limite journalière (vérifiée lors de l'approbation).
     Imports inline pour éviter les imports circulaires. [TELEGRAM_BOT.md]
     """
@@ -544,6 +543,19 @@ async def cmd_force(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     # Session unique pour generate_post + send_approval_request (post attaché à la session)
     async with get_session() as session:
+        # Vérification anticipée max_pending_posts pour un message d'erreur explicite
+        from sqlalchemy import text as _text
+        pending_count = (await session.execute(
+            _text("SELECT COUNT(*) FROM posts WHERE status = 'pending_approval'")
+        )).scalar() or 0
+        if pending_count >= config.scheduler.max_pending_posts:
+            await update.effective_message.reply_text(
+                f"⚠️ {pending_count} post(s) en attente d'approbation "
+                f"(max : {config.scheduler.max_pending_posts}). "
+                "Approuve ou rejette le post en attente avant de générer."
+            )
+            return
+
         post = await generate_post(session, config)
 
         if post is None:
