@@ -1,8 +1,11 @@
 # Formatage de légendes Instagram — Phase 3/11 [SPEC-2.3, SPEC-9.3, docs/IMAGE_GENERATION.md]
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime, timezone
 from typing import TYPE_CHECKING
+
+logger = logging.getLogger(__name__)
 
 from ancnouv.config import Config
 from ancnouv.db.models import Event, RssArticle
@@ -37,8 +40,8 @@ def _time_ago_int(year: int, month: int, day: int) -> str:
         try:
             from ancnouv.utils.date_helpers import compute_time_ago
             return compute_time_ago(date(year, month, day))
-        except (ValueError, OverflowError):
-            pass
+        except (ValueError, OverflowError) as exc:
+            logger.debug("_format_time_ago caption : compute_time_ago(%d) — fallback (%s)", year, exc)
     # Fallback (année hors plage date Python)
     delta = today.year - year
     if delta <= 0:
@@ -61,7 +64,8 @@ def _time_ago_from_datetime(dt: datetime) -> str:
     try:
         from ancnouv.utils.date_helpers import compute_time_ago
         return compute_time_ago(pub)
-    except Exception:
+    except Exception as exc:
+        logger.debug("_format_time_ago_rss caption : compute_time_ago(%s) — fallback (%s)", pub, exc)
         delta = (today - pub).days
         if delta < 30:
             return "Il y a moins d'un mois"

@@ -55,7 +55,8 @@ async def _reload_requested() -> bool:
                 await set_scheduler_state(session, "config_reload_requested", "false")
                 return True
         return False
-    except Exception:
+    except Exception as exc:
+        logger.debug("_reload_requested : DB inaccessible (%s) — flag ignoré", exc)
         return False
 
 

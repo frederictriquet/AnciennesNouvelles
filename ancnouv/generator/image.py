@@ -385,8 +385,8 @@ def _compute_time_ago_int(year: int, month: int, day: int) -> str:
         try:
             from ancnouv.utils.date_helpers import compute_time_ago
             return compute_time_ago(date(year, month, day))
-        except (ValueError, OverflowError):
-            pass
+        except (ValueError, OverflowError) as exc:
+            logger.debug("_format_time_ago image : compute_time_ago(%d) — fallback (%s)", year, exc)
     delta = today.year - year
     if delta <= 0:
         return "Il y a moins d'un an"

@@ -85,7 +85,8 @@ class WikipediaFetcher(BaseFetcher):
                                         (dt - datetime.now(timezone.utc)).total_seconds()
                                     ),
                                 )
-                            except Exception:
+                            except Exception as exc:
+                                logger.debug("Retry-After header illisible (%r) — wait=5s (%s)", retry_after_raw, exc)
                                 wait = 5
                         wait = min(wait, 60)
                         logger.warning(

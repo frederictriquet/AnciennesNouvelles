@@ -1,7 +1,10 @@
 # Router overview — GET / [DASHBOARD.md — GET /]
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
@@ -36,7 +39,8 @@ async def overview(request: Request, db: AsyncSession = Depends(get_db)):
             try:
                 exp = datetime.fromisoformat(str(expires_at))
                 token_days[kind] = max(0, (exp - now).days)
-            except Exception:
+            except Exception as exc:
+                logger.debug("overview : parsing date expiration token '%s' impossible (%s)", kind, exc)
                 token_days[kind] = None
 
     return templates.TemplateResponse(request, "overview.html", {

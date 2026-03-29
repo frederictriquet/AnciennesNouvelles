@@ -394,7 +394,8 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     if last_row and last_row[0]:
         try:
             last_dt = datetime.fromisoformat(str(last_row[0]))
-        except ValueError:
+        except ValueError as exc:
+            logger.debug("Parsing last_published_at impossible (%s) — affiché comme '—'", exc)
             last_dt = None
         last_published = last_dt.strftime("%d/%m/%Y à %H:%M") if last_dt else "—"
     else:
@@ -773,8 +774,9 @@ async def handle_approve(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             can_publish = await check_and_increment_daily_count(
                 get_engine(), config.instagram.max_daily_posts
             )
-        except RuntimeError:
+        except RuntimeError as exc:
             # Engine non initialisé (Phase 6 non démarrée) — skip du check journalier
+            logger.debug("check_and_increment_daily_count ignoré : %s", exc)
             can_publish = True
 
         if not can_publish:

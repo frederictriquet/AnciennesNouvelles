@@ -2,9 +2,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import sys
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 def _get_db_path() -> Path:
@@ -30,7 +33,8 @@ def _get_db_path() -> Path:
 
         cfg = _DBOnly()
         return Path(cfg.data_dir) / cfg.database.filename  # type: ignore[attr-defined]
-    except Exception:
+    except Exception as exc:
+        logger.warning("_get_db_path : lecture config.yml impossible (%s) — fallback data/ancnouv.db", exc)
         return Path("data") / "ancnouv.db"
 
 
@@ -52,7 +56,8 @@ def _get_backup_keep() -> int:
 
         cfg = _DBOnly()
         return cfg.database.backup_keep  # type: ignore[attr-defined]
-    except Exception:
+    except Exception as exc:
+        logger.warning("_get_backup_keep : lecture config.yml impossible (%s) — fallback 7", exc)
         return 7
 
 

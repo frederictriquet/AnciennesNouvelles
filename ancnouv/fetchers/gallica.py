@@ -184,8 +184,9 @@ class GallicaFetcher:
 
         try:
             date_published = date(year, month, day)
-        except ValueError:
+        except ValueError as exc:
             # Combinaison jour/mois invalide pour cette année (ex: 29 février)
+            logger.debug("_parse_item : date invalide %d-%02d-%02d — ignoré (%s)", year, month, day, exc)
             return None
 
         return GallicaItem(

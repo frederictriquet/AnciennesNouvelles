@@ -1,11 +1,14 @@
 # Commande health [docs/CLI.md — section "health", CLI-M2, CLI-M3]
 from __future__ import annotations
 
+import logging
 import socket
 import sys
 from datetime import datetime, timezone
 
 from ancnouv.config import Config
+
+logger = logging.getLogger(__name__)
 
 
 async def run_health(config: Config) -> int:
@@ -94,7 +97,8 @@ async def run_health(config: Config) -> int:
                         else:
                             lines.append(f"Token Meta     : OK (expire dans {days_left} jours)")
                             token_ok = True
-                    except Exception:
+                    except Exception as exc:
+                        logger.warning("health : parsing date expiration token impossible (%s)", exc)
                         lines.append("Token Meta     : OK (expiration illisible)")
                         token_ok = True
                 else:
@@ -179,7 +183,8 @@ async def run_health(config: Config) -> int:
         try:
             with socket.create_connection(("localhost", config.image_hosting.local_port), timeout=2):
                 lines.append(f"Serveur images : ACTIF (port {config.image_hosting.local_port})")
-        except Exception:
+        except Exception as exc:
+            logger.debug("health : socket serveur images inaccessible (%s)", exc)
             lines.append(
                 f"Serveur images : ARRÊTÉ (port {config.image_hosting.local_port} "
                 "— normal si app non démarrée)"

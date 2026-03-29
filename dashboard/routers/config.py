@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 
 import yaml
 from fastapi import APIRouter, Depends, Form, Request
@@ -20,6 +21,8 @@ from config_meta import (
     value_to_display,
 )
 from db import delete_override, get_all_overrides, get_db, get_scheduler_state, set_scheduler_state, upsert_override
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 templates = Jinja2Templates(directory="templates")
@@ -63,7 +66,8 @@ async def config_page(request: Request, db: AsyncSession = Depends(get_db)):
             raw = overrides_map[meta.key]["value"]
             try:
                 effective = deserialize_value(raw, meta.value_type)
-            except Exception:
+            except Exception as exc:
+                logger.debug("config router : désérialisation override '%s' impossible (%s) — fallback default", meta.key, exc)
                 effective = meta.default
             source = "override"
             updated_at = overrides_map[meta.key]["updated_at"]
