@@ -12,6 +12,7 @@ import numpy as np  # [IMG-C7] import au niveau module — fail-fast si absent o
 from PIL import Image, ImageDraw, ImageFont
 
 from ancnouv.exceptions import GeneratorError
+from ancnouv.utils.date_helpers import time_ago_from_ymd
 
 if TYPE_CHECKING:
     from ancnouv.config import Config
@@ -375,11 +376,6 @@ def _draw_footer(
 # Extraction des métadonnées source
 # ---------------------------------------------------------------------------
 
-def _compute_time_ago_int(year: int, month: int, day: int) -> str:
-    from ancnouv.utils.date_helpers import time_ago_from_ymd
-    return time_ago_from_ymd(year, month, day)
-
-
 def _format_date_int(year: int, month: int, day: int) -> str:
     """Date formatée en français. Gère les années négatives (av. J.-C.)."""
     month_name = _FR_MONTHS[month]
@@ -467,7 +463,7 @@ def _generate_image_inner(
             time_ago = "Date inconnue"
             date_str = "Date inconnue"
         else:
-            time_ago = _compute_time_ago_int(
+            time_ago = time_ago_from_ymd(
                 source.year, source.month, source.day
             )
             date_str = _format_date_int(source.year, source.month, source.day)
@@ -577,7 +573,7 @@ def _generate_story_inner(
             time_ago = "Date inconnue"
             date_str = "Date inconnue"
         else:
-            time_ago = _compute_time_ago_int(source.year, source.month, source.day)
+            time_ago = time_ago_from_ymd(source.year, source.month, source.day)
             date_str = _format_date_int(source.year, source.month, source.day)
         text = truncate_for_image(
             getattr(source, "description", "") or "",

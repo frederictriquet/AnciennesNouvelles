@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 from ancnouv.config import Config
 from ancnouv.db.models import Event, RssArticle
+from ancnouv.utils.date_helpers import time_ago_from_ymd
 
 if TYPE_CHECKING:
     from ancnouv.db.models import GallicaArticle
@@ -27,11 +28,6 @@ def truncate_caption(text: str, max_chars: int = 300) -> str:
         return text
     truncated = text[:max_chars - 3].rsplit(" ", 1)[0]
     return truncated + "..."
-
-
-def _time_ago_int(year: int, month: int, day: int) -> str:
-    from ancnouv.utils.date_helpers import time_ago_from_ymd
-    return time_ago_from_ymd(year, month, day)
 
 
 def _format_date_int(year: int, month: int, day: int) -> str:
@@ -67,7 +63,7 @@ def format_caption(event: Event, config: Config) -> str:
     Format : formule temporelle + date + description tronquée + source + hashtags.
     Source template FR ou EN selon event.source_lang.
     """
-    time_ago = _time_ago_int(event.year, event.month, event.day)
+    time_ago = time_ago_from_ymd(event.year, event.month, event.day)
     date_str = _format_date_int(event.year, event.month, event.day)
 
     # Préfixe contextuel pour naissances et décès [SPEC-2.3]

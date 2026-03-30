@@ -52,7 +52,7 @@ def time_ago_from_ymd(year: int, month: int, day: int) -> str:
         return f"Il y a {abs(year) + today.year} ans"
     if 1 <= year <= 9999:
         try:
-            return compute_time_ago(date(year, month, day))
+            return compute_time_ago(date(year, month, day), today)
         except (ValueError, OverflowError) as exc:
             logger.debug("time_ago_from_ymd : compute_time_ago(%d) — fallback (%s)", year, exc)
     # Fallback (année hors plage date Python)

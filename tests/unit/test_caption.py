@@ -246,37 +246,37 @@ def test_format_caption_rss_truncates_at_2200(_mock_article, _mock_config):
     assert len(result) <= 2200
 
 
-# ─── _time_ago_int — chemins de fallback ─────────────────────────────────────
+# ─── time_ago_from_ymd — chemins de fallback ─────────────────────────────────
 
 def test_time_ago_int_invalid_date_triggers_fallback():
     """Mois invalide (13) → ValueError attrapé, fallback calcul. [IMAGE_GENERATION.md]"""
-    from ancnouv.generator.caption import _time_ago_int
+    from ancnouv.utils.date_helpers import time_ago_from_ymd
     # month=13 → date() lève ValueError → fallback
-    result = _time_ago_int(2000, 13, 1)
+    result = time_ago_from_ymd(2000, 13, 1)
     assert "Il y a" in result
 
 
 def test_time_ago_int_year_above_9999():
     """Année > 9999 → branche fallback directe. [IMAGE_GENERATION.md]"""
-    from ancnouv.generator.caption import _time_ago_int
-    result = _time_ago_int(10000, 1, 1)
+    from ancnouv.utils.date_helpers import time_ago_from_ymd
+    result = time_ago_from_ymd(10000, 1, 1)
     assert "Il y a" in result
 
 
 @freeze_time("2026-03-21")
 def test_time_ago_int_fallback_delta_zero():
     """Année actuelle (delta=0) → 'Il y a moins d'un an'. [IMAGE_GENERATION.md]"""
-    from ancnouv.generator.caption import _time_ago_int
+    from ancnouv.utils.date_helpers import time_ago_from_ymd
     # Mois invalide + année courante → delta = 0
-    result = _time_ago_int(2026, 13, 1)
+    result = time_ago_from_ymd(2026, 13, 1)
     assert "Il y a moins d'un an" in result
 
 
 @freeze_time("2026-03-21")
 def test_time_ago_int_fallback_one_year():
     """Année invalide (delta=1) → 'Il y a 1 an'. [IMAGE_GENERATION.md]"""
-    from ancnouv.generator.caption import _time_ago_int
-    result = _time_ago_int(2025, 13, 1)
+    from ancnouv.utils.date_helpers import time_ago_from_ymd
+    result = time_ago_from_ymd(2025, 13, 1)
     assert "Il y a 1 an" in result
 
 
