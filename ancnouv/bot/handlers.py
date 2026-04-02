@@ -533,9 +533,8 @@ async def cmd_force(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     Ne bypass pas la limite journalière (vérifiée lors de l'approbation).
     Imports inline pour éviter les imports circulaires. [TELEGRAM_BOT.md]
     """
-    # Import inline [TELEGRAM_BOT.md]
+    # Import inline pour éviter les imports circulaires [TELEGRAM_BOT.md]
     from ancnouv.generator import generate_post
-    from ancnouv.config_loader import get_effective_config
 
     config = await get_effective_config()
     user = update.effective_user
