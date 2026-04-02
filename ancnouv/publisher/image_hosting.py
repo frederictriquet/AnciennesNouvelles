@@ -19,6 +19,21 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Mapping explicite extension → Content-Type pour ne pas dépendre de mimetypes.guess_type()
+# qui peut retourner None sur les containers Docker sans base MIME système [IG-9004]
+_CONTENT_TYPES: dict[str, str] = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".mp4": "video/mp4",
+    ".mov": "video/quicktime",
+}
+
+
+def _content_type_for(filename: str) -> str:
+    """Retourne le Content-Type MIME selon l'extension du fichier."""
+    return _CONTENT_TYPES.get(Path(filename).suffix.lower(), "application/octet-stream")
+
 
 async def upload_image(image_path: Path, config: "Config") -> str:
     """Retourne l'URL publique de l'image selon le backend configuré.
@@ -101,7 +116,10 @@ async def start_local_image_server(images_dir: Path, port: int) -> web.AppRunner
         file_path = images_dir / safe_name
         if not file_path.exists():
             raise web.HTTPNotFound()
-        return web.FileResponse(file_path)
+        # Content-Type forcé explicitement — mimetypes.guess_type() peut retourner None
+        # sur les containers Docker sans base MIME système, ce qui donne
+        # application/octet-stream et cause l'erreur 9004 côté Instagram [IG-9004]
+        return web.FileResponse(file_path, headers={"Content-Type": _content_type_for(safe_name)})
 
     app.router.add_get("/images/{filename}", handle_get_image)
 
@@ -137,7 +155,7 @@ async def run_image_server(port: int = 8765, token: str = "") -> int:
         file_path = images_dir / safe_name
         if not file_path.exists():
             raise web.HTTPNotFound()
-        return web.FileResponse(file_path)
+        return web.FileResponse(file_path, headers={"Content-Type": _content_type_for(safe_name)})
 
     async def handle_upload(request: web.Request) -> web.Response:
         # Vérification Bearer token [IG-5B — sécurité handle_upload]

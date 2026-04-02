@@ -51,6 +51,20 @@ def _make_context(config, bot=None):
     return context
 
 
+@pytest.fixture(autouse=True)
+async def _patch_get_effective_config(mock_config):
+    """Patch get_effective_config pour retourner mock_config dans tous les handlers. [TESTING.md]
+
+    Les handlers n'utilisent plus context.bot_data["config"] mais get_effective_config().
+    Ce patch garantit que les tests reçoivent toujours le mock_config de conftest.
+    """
+    with patch(
+        "ancnouv.bot.handlers.get_effective_config",
+        new=AsyncMock(return_value=mock_config),
+    ):
+        yield
+
+
 # ─── cmd_pause / cmd_resume ──────────────────────────────────────────────────────
 
 async def test_cmd_pause_sets_flag(db_session, mock_config):

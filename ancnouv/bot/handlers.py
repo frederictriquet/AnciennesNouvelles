@@ -21,6 +21,7 @@ from telegram.ext import (
 )
 
 from ancnouv.bot.notifications import notify_all, send_approval_request
+from ancnouv.config_loader import get_effective_config
 from ancnouv.db.models import Event, Post, RssArticle
 from ancnouv.db.session import get_session
 from ancnouv.db.utils import get_scheduler_state, set_scheduler_state
@@ -329,7 +330,7 @@ async def _retry_single_platform(
 @authorized_only
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Message de bienvenue + état courant. [TELEGRAM_BOT.md — cmd_start, RF-3.3.5]"""
-    config: Config = context.bot_data["config"]
+    config = await get_effective_config()
 
     async with get_session() as session:
         paused = await get_scheduler_state(session, "paused")
@@ -367,7 +368,7 @@ async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 @authorized_only
 async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """État détaillé du système. [TELEGRAM_BOT.md — cmd_status, TG-M9]"""
-    config: Config = context.bot_data["config"]
+    config = await get_effective_config()
 
     async with get_session() as session:
         paused = await get_scheduler_state(session, "paused")
@@ -534,8 +535,9 @@ async def cmd_force(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """
     # Import inline [TELEGRAM_BOT.md]
     from ancnouv.generator import generate_post
+    from ancnouv.config_loader import get_effective_config
 
-    config: Config = context.bot_data["config"]
+    config = await get_effective_config()
     user = update.effective_user
     logger.info("cmd_force déclenché par user_id=%s username=%s", user.id if user else "?", user.username if user else "?")
 
@@ -578,7 +580,7 @@ async def cmd_retry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     Verrou optimiste : UPDATE ... WHERE status='error'.
     Si 0 lignes → retry parallèle, retour silencieux. [TELEGRAM_BOT.md]
     """
-    config: Config = context.bot_data["config"]
+    config = await get_effective_config()
 
     async with get_session() as session:
         # Sélection du dernier post en erreur
@@ -633,7 +635,7 @@ async def cmd_retry(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 @authorized_only
 async def cmd_retry_ig(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Retente Instagram uniquement sur le dernier post published avec instagram_error. [TG-F16]"""
-    config: Config = context.bot_data["config"]
+    config = await get_effective_config()
 
     async with get_session() as session:
         result = await session.execute(
@@ -671,7 +673,7 @@ async def cmd_retry_ig(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 @authorized_only
 async def cmd_retry_fb(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Retente Facebook uniquement sur le dernier post published avec facebook_error. [TG-F16]"""
-    config: Config = context.bot_data["config"]
+    config = await get_effective_config()
 
     async with get_session() as session:
         result = await session.execute(
@@ -725,7 +727,7 @@ async def handle_approve(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         logger.warning("query.answer() échoué (callback expirée ?) : %s", exc)
 
     post_id = int(query.data.split(":")[1])
-    config: Config = context.bot_data["config"]
+    config = await get_effective_config()
 
     async with get_session() as session:
         post = await session.get(Post, post_id)
@@ -903,7 +905,7 @@ async def handle_skip(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         logger.warning("query.answer() échoué (callback expirée ?) : %s", exc)
 
     post_id = int(query.data.split(":")[1])
-    config: Config = context.bot_data["config"]
+    config = await get_effective_config()
 
     async with get_session() as session:
         post = await session.get(Post, post_id)
@@ -951,7 +953,7 @@ async def handle_queue_it(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         logger.warning("query.answer() échoué (callback expirée ?) : %s", exc)
 
     post_id = int(query.data.split(":")[1])
-    config: Config = context.bot_data["config"]
+    config = await get_effective_config()
 
     async with get_session() as session:
         post = await session.get(Post, post_id)
@@ -1033,8 +1035,7 @@ async def handle_queue_it(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 async def cmd_queue(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Affiche la file d'attente avec heures estimées. [SPEC-7ter, RF-7ter.4]"""
     from zoneinfo import ZoneInfo
-
-    config: Config = context.bot_data["config"]
+    config = await get_effective_config()
 
     async with get_session() as session:
         result = await session.execute(
@@ -1116,7 +1117,7 @@ async def handle_new_caption(
     if post_id is None:
         return ConversationHandler.END
 
-    config: Config = context.bot_data["config"]
+    config = await get_effective_config()
 
     async with get_session() as session:
         post = await session.get(Post, post_id)

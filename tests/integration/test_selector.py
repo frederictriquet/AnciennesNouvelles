@@ -182,6 +182,15 @@ async def test_get_effective_params_level_4(db_session, mock_config):
     assert params.dedup_window <= 180
 
 
+async def test_get_effective_params_age_range_from_config(db_session, mock_config):
+    """min/max age_years propagés depuis la config dans EffectiveQueryParams. [content.event_min_age_years, content.event_max_age_years]"""
+    mock_config.content.event_min_age_years = 10
+    mock_config.content.event_max_age_years = 200
+    params = await get_effective_query_params(db_session, mock_config)
+    assert params.min_age_years == 10
+    assert params.max_age_years == 200
+
+
 # ─── select_gallica_article ───────────────────────────────────────────────────────
 
 def _make_gallica_article(**kwargs):
