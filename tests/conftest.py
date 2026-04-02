@@ -179,6 +179,8 @@ def mock_config():
     config.content.rss.max_age_days = 180
     config.content.rss.feeds = []
     config.content.mix_ratio = 0.2
+    config.content.event_min_age_years = 0
+    config.content.event_max_age_years = 0
     config.content.deduplication_policy = "never"
     config.content.deduplication_window_days = 365
     config.content.low_stock_threshold = 3

@@ -57,6 +57,8 @@ class EffectiveQueryParams:
     use_fallback_en: bool = False
     dedup_policy: str = "never"
     dedup_window: int = 365
+    min_age_years: int = 0  # 0 = pas de limite
+    max_age_years: int = 0  # 0 = pas de limite
 
 
 class BaseFetcher(ABC):

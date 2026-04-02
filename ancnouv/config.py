@@ -66,6 +66,8 @@ class ContentConfig(BaseSettings):
     image_retention_days: int = Field(default=7, ge=1)
     low_stock_threshold: int = Field(default=3, ge=1)
     mix_ratio: float = Field(default=0.2, ge=0.0, le=1.0)
+    event_min_age_years: int = Field(default=0, ge=0)
+    event_max_age_years: int = Field(default=0, ge=0)
     rss: RssConfig = RssConfig()
 
 

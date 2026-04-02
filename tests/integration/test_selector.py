@@ -211,7 +211,7 @@ async def test_select_gallica_article_returns_available(db_session, mock_config)
     db_session.add(article)
     await db_session.commit()
 
-    result = await select_gallica_article(db_session, mock_config, {})
+    result = await select_gallica_article(db_session, mock_config, EffectiveQueryParams())
     assert result is not None
     assert result.ark_id == "ark:/12148/bpt6k_test"
 
@@ -220,7 +220,7 @@ async def test_select_gallica_article_empty_db(db_session, mock_config):
     """Aucun article en DB → None."""
     from ancnouv.generator.selector import select_gallica_article
 
-    result = await select_gallica_article(db_session, mock_config, {})
+    result = await select_gallica_article(db_session, mock_config, EffectiveQueryParams())
     assert result is None
 
 
@@ -374,5 +374,92 @@ async def test_select_gallica_article_skips_published(db_session, mock_config):
     db_session.add(article)
     await db_session.commit()
 
-    result = await select_gallica_article(db_session, mock_config, {})
+    result = await select_gallica_article(db_session, mock_config, EffectiveQueryParams())
     assert result is None
+
+
+# ─── Filtre d'ancienneté — événements Wikipedia ───────────────────────────────
+
+async def test_select_event_min_age_excludes_recent(db_session, mock_config):
+    """min_age_years=50 → événement de l'année courante non sélectionné. [content.event_min_age_years]"""
+    today = date.today()
+    await _make_event(db_session, today.month, today.day, today.year, "Événement récent")
+
+    params = EffectiveQueryParams(dedup_policy="always", min_age_years=50)
+    result = await select_event(db_session, today, params)
+    assert result is None
+
+
+async def test_select_event_max_age_excludes_ancient(db_session, mock_config):
+    """max_age_years=100 → événement de l'an 1 non sélectionné. [content.event_max_age_years]"""
+    today = date.today()
+    await _make_event(db_session, today.month, today.day, 1, "Événement très ancien")
+
+    params = EffectiveQueryParams(dedup_policy="always", max_age_years=100)
+    result = await select_event(db_session, today, params)
+    assert result is None
+
+
+async def test_select_event_age_range_selects_within(db_session, mock_config):
+    """Événement dans la plage min/max → sélectionné. [content.event_min_age_years, content.event_max_age_years]"""
+    today = date.today()
+    year_in_range = today.year - 50
+    await _make_event(db_session, today.month, today.day, year_in_range, "Événement dans la plage")
+
+    params = EffectiveQueryParams(dedup_policy="always", min_age_years=10, max_age_years=100)
+    result = await select_event(db_session, today, params)
+    assert result is not None
+    assert result.year == year_in_range
+
+
+# ─── Filtre d'ancienneté — articles Gallica ───────────────────────────────────
+
+async def test_select_gallica_min_age_excludes_recent(db_session, mock_config):
+    """min_age_years=50 → article Gallica de l'année courante non sélectionné. [content.event_min_age_years]"""
+    from ancnouv.generator.selector import select_gallica_article
+    today = date.today()
+    article = _make_gallica_article(
+        ark_id="ark:/12148/recent",
+        content_hash="recent01",
+        date_published=date(today.year, 1, 1),
+    )
+    db_session.add(article)
+    await db_session.commit()
+
+    params = EffectiveQueryParams(min_age_years=50)
+    result = await select_gallica_article(db_session, mock_config, params)
+    assert result is None
+
+
+async def test_select_gallica_max_age_excludes_ancient(db_session, mock_config):
+    """max_age_years=100 → article Gallica de 1850 non sélectionné. [content.event_max_age_years]"""
+    from ancnouv.generator.selector import select_gallica_article
+    article = _make_gallica_article(
+        ark_id="ark:/12148/ancient",
+        content_hash="ancient01",
+        date_published=date(1850, 6, 15),
+    )
+    db_session.add(article)
+    await db_session.commit()
+
+    params = EffectiveQueryParams(max_age_years=100)
+    result = await select_gallica_article(db_session, mock_config, params)
+    assert result is None
+
+
+async def test_select_gallica_age_range_selects_within(db_session, mock_config):
+    """Article Gallica dans la plage min/max → sélectionné. [content.event_min_age_years, content.event_max_age_years]"""
+    from ancnouv.generator.selector import select_gallica_article
+    today = date.today()
+    year_in_range = today.year - 80
+    article = _make_gallica_article(
+        ark_id="ark:/12148/inrange",
+        content_hash="inrange01",
+        date_published=date(year_in_range, 6, 15),
+    )
+    db_session.add(article)
+    await db_session.commit()
+
+    params = EffectiveQueryParams(min_age_years=50, max_age_years=150)
+    result = await select_gallica_article(db_session, mock_config, params)
+    assert result is not None

@@ -84,6 +84,8 @@ async def get_effective_query_params(
         use_fallback_en=use_fallback_en,
         dedup_policy=dedup_policy,
         dedup_window=dedup_window,
+        min_age_years=config.content.event_min_age_years,
+        max_age_years=config.content.event_max_age_years,
     )
 
 
@@ -127,11 +129,22 @@ async def select_event(
         params[f"d{i}"] = d.day
     date_clause = " OR ".join(date_parts)
 
+    # Filtre d'ancienneté [content.event_min_age_years, content.event_max_age_years]
+    age_clause = ""
+    today_year = date.today().year
+    if effective_params.min_age_years > 0:
+        params["year_ceiling"] = today_year - effective_params.min_age_years
+        age_clause += " AND year <= :year_ceiling"
+    if effective_params.max_age_years > 0:
+        params["year_floor"] = today_year - effective_params.max_age_years
+        age_clause += " AND year >= :year_floor"
+
     result = await session.execute(
         text(
             f"SELECT id FROM events "
             f"WHERE ({date_clause}) AND status = 'available' "
             f"{dedup_clause} "
+            f"{age_clause} "
             f"ORDER BY RANDOM() LIMIT 1"
         ),
         params,
@@ -184,26 +197,35 @@ async def select_article(
 async def select_gallica_article(
     session: AsyncSession,
     config: Config,
-    params: dict,
+    effective_params: EffectiveQueryParams,
 ) -> "GallicaArticle | None":
     """Sélectionne un article Gallica disponible [SPEC-9.3, DS-3].
 
     Critères de sélection (ordre de priorité) :
     1. status = 'available'
     2. Non encore publié (published_count = 0)
-    3. Ordre aléatoire pour la variété
+    3. Filtre d'ancienneté [content.event_min_age_years, content.event_max_age_years]
+    4. Ordre aléatoire pour la variété
     """
-    from sqlalchemy import select as sa_select
+    from sqlalchemy import extract, select as sa_select
 
     from ancnouv.db.models import GallicaArticle
 
+    today_year = date.today().year
     query = (
         sa_select(GallicaArticle)
         .where(GallicaArticle.status == "available")
         .where(GallicaArticle.published_count == 0)
-        .order_by(func.random())
-        .limit(1)
     )
+    if effective_params.min_age_years > 0:
+        query = query.where(
+            extract("year", GallicaArticle.date_published) <= today_year - effective_params.min_age_years
+        )
+    if effective_params.max_age_years > 0:
+        query = query.where(
+            extract("year", GallicaArticle.date_published) >= today_year - effective_params.max_age_years
+        )
+    query = query.order_by(func.random()).limit(1)
 
     result = await session.execute(query)
     return result.scalar_one_or_none()

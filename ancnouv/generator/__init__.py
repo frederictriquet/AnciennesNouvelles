@@ -61,7 +61,7 @@ async def generate_post(session: AsyncSession, config: "Config") -> Post | None:
 
     # Tirage aléatoire pour Mode C (Gallica)
     if config.gallica.enabled and random.random() < config.gallica.mix_ratio:
-        source = await select_gallica_article(session, config, {})
+        source = await select_gallica_article(session, config, effective_params)
 
     # Tirage aléatoire pour Mode B (RSS) si Mode C non sélectionné ou vide
     if source is None and config.content.rss.enabled and random.random() < config.content.mix_ratio:
@@ -77,7 +77,7 @@ async def generate_post(session: AsyncSession, config: "Config") -> Post | None:
     if source is None and config.content.rss.enabled:
         source = await select_article(session, config, effective_params)
     if source is None and config.gallica.enabled:
-        source = await select_gallica_article(session, config, {})
+        source = await select_gallica_article(session, config, effective_params)
 
     if source is None:
         logger.info("Aucune source disponible pour generate_post — retourne None")
