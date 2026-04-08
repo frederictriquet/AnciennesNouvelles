@@ -129,6 +129,7 @@ async def _run(args: argparse.Namespace) -> int:
         month = today.month
         day = today.day
         year = args.year
+        description = ""
         title = None
         wikipedia_url = None
         image_url = None
@@ -143,9 +144,9 @@ async def _run(args: argparse.Namespace) -> int:
             print("  ⚠ Thumbnail inaccessible — génération sans photo.", file=sys.stderr)
 
     try:
-        generated = generate_image(_FakeEvent(), config, output_path=output_path, thumbnail=thumbnail)
+        generated = generate_image(_FakeEvent(), config, output_path=output_path, thumbnail=thumbnail)  # type: ignore[arg-type]
         print(f"Image générée : {generated}")
-        await _generate_extras(args, config, _FakeEvent(), output_path, thumbnail)
+        await _generate_extras(args, config, _FakeEvent(), output_path, thumbnail)  # type: ignore[arg-type]
         _open_image(generated, args.no_open)
         return 0
     except Exception as exc:
@@ -180,28 +181,32 @@ async def _rss_and_generate(config, output_path: Path, args: argparse.Namespace)
         return 1
 
     entry = feed.entries[0]
-    title = entry.get("title", "").strip()
-    summary = entry.get("summary", "").strip()
-    feed_name = feed.feed.get("title", url)
+    title = str(entry.get("title", "")).strip()
+    summary = str(entry.get("summary", "")).strip()
+    feed_name = str(feed.feed.get("title", url))
     print(f"  Flux        : {feed_name}")
     print(f"  Article     : {title[:80]}")
 
     # Extraction image (même logique que le fetcher)
-    image_url = None
+    image_url: str | None = None
     if entry.get("media_thumbnail"):
-        image_url = entry.media_thumbnail[0].get("url") or entry.media_thumbnail[0].get("href")
+        raw = entry.media_thumbnail[0].get("url") or entry.media_thumbnail[0].get("href")
+        image_url = str(raw) if raw else None
     if not image_url and entry.get("media_content"):
-        image_url = entry.media_content[0].get("url") or entry.media_content[0].get("href")
+        raw = entry.media_content[0].get("url") or entry.media_content[0].get("href")
+        image_url = str(raw) if raw else None
     if not image_url and entry.get("enclosures"):
         enc = entry.enclosures[0]
-        if enc.get("type", "").startswith("image/"):
-            image_url = enc.get("href") or enc.get("url")
+        if str(enc.get("type", "")).startswith("image/"):
+            raw = enc.get("href") or enc.get("url")
+            image_url = str(raw) if raw else None
 
     print(f"  Image URL   : {(image_url or 'aucune')[:80]}")
 
     # Parsing published_at (même logique que le fetcher)
-    if entry.get("published_parsed"):
-        published_at = datetime(*entry["published_parsed"][:6], tzinfo=timezone.utc)
+    published_parsed = entry.get("published_parsed")
+    if published_parsed:
+        published_at = datetime(*[int(v) for v in published_parsed[:6]], tzinfo=timezone.utc)
     else:
         published_at = datetime.now(timezone.utc)
 
@@ -262,7 +267,7 @@ async def _fetch_and_generate(config, output_path: Path, args: argparse.Namespac
 
     class _RealEvent:
         source = "wikipedia"
-        source_lang = item.lang if hasattr(item, "lang") else "fr"
+        source_lang = item.source_lang
         event_type = getattr(item, "event_type", "event")
         month = today.month
         day = today.day
@@ -273,9 +278,9 @@ async def _fetch_and_generate(config, output_path: Path, args: argparse.Namespac
         image_url = item.image_url
 
     try:
-        generated = generate_image(_RealEvent(), config, output_path=output_path, thumbnail=thumbnail)
+        generated = generate_image(_RealEvent(), config, output_path=output_path, thumbnail=thumbnail)  # type: ignore[arg-type]
         print(f"Image générée : {generated}")
-        await _generate_extras(args, config, _RealEvent(), output_path, thumbnail)
+        await _generate_extras(args, config, _RealEvent(), output_path, thumbnail)  # type: ignore[arg-type]
         _open_image(generated, args.no_open)
         return 0
     except Exception as exc:
