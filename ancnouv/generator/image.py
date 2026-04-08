@@ -144,12 +144,9 @@ def _load_fonts() -> dict:
         "masthead":   ("PlayfairDisplay-Bold.ttf",      72),
         "date_large": ("IMFellEnglish-Regular.ttf",     40),
         "date_small": ("IMFellEnglish-Regular.ttf",     32),
-        "body":       ("LibreBaskerville-Regular.ttf",  28),
         "footer":     ("LibreBaskerville-Regular.ttf",  24),
     }
-    optional = {
-        "body_italic": ("LibreBaskerville-Italic.ttf", 28),
-    }
+    optional: dict = {}
     fonts: dict = {}
     for key, (filename, size) in required.items():
         path = FONTS_DIR / filename
@@ -307,45 +304,45 @@ def _draw_thumbnail(
     img.paste(resized, (x_offset, y_offset))
 
 
-def _draw_event_text(
+def _draw_event_text_adaptive(
     draw: ImageDraw.ImageDraw,
     W: int,
     text: str,
     text_y: int,
     max_height: int,
-    fonts: dict,
     colors: dict,
+    preferred_size: int = 40,
+    min_size: int = 24,
 ) -> None:
-    """Rendu du texte principal. Limite 18 lignes max avec tronc. "...". [IMG-2]
+    """Rendu du texte principal avec taille de police adaptative. [IMG-2]
 
-    Interlignage : 28px * 1.5 = 42px.
-    Arrêt à effective_max = min(18, max_height // line_height). [IMG-2]
+    Recherche binaire entre min_size et preferred_size pour trouver
+    la plus grande taille où l'intégralité du texte tient dans max_height.
+    Aucune troncature — tout le texte est affiché.
+    Interlignage : size * 1.5.
     """
-    font = fonts["body"]
-    line_height = 42  # 28px * 1.5
-
-    max_by_height = max_height // line_height
-    effective_max = min(18, max_by_height)
-
     inner_w = W - 2 * PADDING
-    all_lines = _wrap_text(draw, text, font, inner_w)
+    font_path = FONTS_DIR / "LibreBaskerville-Regular.ttf"
 
-    needs_ellipsis = len(all_lines) > effective_max
-    display_lines = all_lines[:effective_max] if needs_ellipsis else all_lines
+    lo, hi = min_size, preferred_size
+    best_size = min_size
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        font = load_font(font_path, mid)
+        line_height = int(mid * 1.5)
+        lines = _wrap_text(draw, text, font, inner_w)
+        if len(lines) * line_height <= max_height:
+            best_size = mid
+            lo = mid + 1
+        else:
+            hi = mid - 1
 
-    if needs_ellipsis and display_lines:
-        # Tronquer la dernière ligne pour ajouter "..."
-        last = display_lines[-1]
-        ellipsis = "..."
-        while last and draw.textlength(last + ellipsis, font=font) > inner_w:
-            if " " in last:
-                last = last.rsplit(" ", 1)[0]
-            else:
-                last = last[:-1]
-        display_lines[-1] = last + ellipsis
+    font = load_font(font_path, best_size)
+    line_height = int(best_size * 1.5)
+    lines = _wrap_text(draw, text, font, inner_w)
 
     y = text_y
-    for line in display_lines:
+    for line in lines:
         draw.text((PADDING, y), line, fill=colors["text_primary"], font=font)
         y += line_height
 
@@ -486,10 +483,10 @@ def _generate_image_inner(
     # Layout avec thumbnail : texte d'abord (teaser), puis photo en bas. [IMG-11]
     # Évite le pattern "une ligne + grande photo noire" pour les descriptions courtes.
     if thumbnail is not None:
-        _draw_event_text(draw, W, text, text_y=285, max_height=588, fonts=fonts, colors=colors)
+        _draw_event_text_adaptive(draw, W, text, text_y=285, max_height=588, colors=colors)
         _draw_thumbnail(img, thumbnail, y=920, W=W)
     else:
-        _draw_event_text(draw, W, text, text_y=285, max_height=915, fonts=fonts, colors=colors)
+        _draw_event_text_adaptive(draw, W, text, text_y=285, max_height=915, colors=colors)
 
     # 6. Séparateurs + footer (trois dividers selon la spec [IMAGE_GENERATION.md])
     # date_str est à y=230, police 32px — s'étend jusqu'à ~y=266.
@@ -633,11 +630,10 @@ def _generate_story_inner(
 
     # Texte condensé
     y_footer_div = safe_bot - 70
-    _draw_event_text(
+    _draw_event_text_adaptive(
         draw, W, text,
         text_y=y_text_start,
         max_height=y_footer_div - y_text_start - 10,
-        fonts=fonts,
         colors=colors,
     )
 

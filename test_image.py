@@ -90,6 +90,10 @@ async def _run(args: argparse.Namespace) -> int:
     from ancnouv.config import Config
     from ancnouv.generator.image import fetch_thumbnail, generate_image
 
+    import os
+    # Token factice pour satisfaire la validation Pydantic en mode remote.
+    # Ce script ne publie rien — le token n'est jamais utilisé réellement.
+    os.environ.setdefault("IMAGE_SERVER_TOKEN", "local-dev-placeholder")
     try:
         config = Config()
     except Exception as exc:
