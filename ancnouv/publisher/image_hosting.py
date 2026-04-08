@@ -119,7 +119,7 @@ async def start_local_image_server(images_dir: Path, port: int) -> web.AppRunner
         # Content-Type forcé explicitement — mimetypes.guess_type() peut retourner None
         # sur les containers Docker sans base MIME système, ce qui donne
         # application/octet-stream et cause l'erreur 9004 côté Instagram [IG-9004]
-        return web.FileResponse(file_path, headers={"Content-Type": _content_type_for(safe_name)})
+        return web.FileResponse(file_path, headers={"Content-Type": _content_type_for(safe_name)})  # type: ignore[return-value]
 
     app.router.add_get("/images/{filename}", handle_get_image)
 
@@ -155,7 +155,7 @@ async def run_image_server(port: int = 8765, token: str = "") -> int:
         file_path = images_dir / safe_name
         if not file_path.exists():
             raise web.HTTPNotFound()
-        return web.FileResponse(file_path, headers={"Content-Type": _content_type_for(safe_name)})
+        return web.FileResponse(file_path, headers={"Content-Type": _content_type_for(safe_name)})  # type: ignore[return-value]
 
     async def handle_upload(request: web.Request) -> web.Response:
         # Vérification Bearer token [IG-5B — sécurité handle_upload]
@@ -164,21 +164,21 @@ async def run_image_server(port: int = 8765, token: str = "") -> int:
             raise web.HTTPUnauthorized()
 
         reader = await request.multipart()
-        field = await reader.next()
+        field = await reader.next()  # type: ignore[assignment]
 
         # field.filename peut être None [IG-5B]
-        if field is None or not field.filename:
+        if field is None or not field.filename:  # type: ignore[attr-defined]
             raise web.HTTPBadRequest(reason="Aucun fichier fourni")
 
         # Protection path traversal : extraire uniquement le nom [IG-5B]
-        safe_name = Path(field.filename).name
+        safe_name = Path(field.filename).name  # type: ignore[attr-defined]
         if not safe_name:
             raise web.HTTPBadRequest(reason="Nom de fichier invalide")
 
         file_path = images_dir / safe_name
         with file_path.open("wb") as f:
             while True:
-                chunk = await field.read_chunk()
+                chunk = await field.read_chunk()  # type: ignore[attr-defined]
                 if not chunk:
                     break
                 f.write(chunk)

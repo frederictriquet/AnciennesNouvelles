@@ -183,7 +183,7 @@ async def _rss_and_generate(config, output_path: Path, args: argparse.Namespace)
     entry = feed.entries[0]
     title = str(entry.get("title", "")).strip()
     summary = str(entry.get("summary", "")).strip()
-    feed_name = str(feed.feed.get("title", url))
+    feed_name = str(feed.feed.get("title", url))  # type: ignore[attr-defined]
     print(f"  Flux        : {feed_name}")
     print(f"  Article     : {title[:80]}")
 
@@ -206,7 +206,7 @@ async def _rss_and_generate(config, output_path: Path, args: argparse.Namespace)
     # Parsing published_at (même logique que le fetcher)
     published_parsed = entry.get("published_parsed")
     if published_parsed:
-        published_at = datetime(*[int(v) for v in published_parsed[:6]], tzinfo=timezone.utc)
+        published_at = datetime(*[int(v) for v in published_parsed[:6]], tzinfo=timezone.utc)  # type: ignore[arg-type]
     else:
         published_at = datetime.now(timezone.utc)
 

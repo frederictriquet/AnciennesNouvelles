@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import os
 
+from typing import AsyncGenerator
+
 from sqlalchemy import event, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
@@ -38,8 +40,8 @@ def get_session_factory() -> async_sessionmaker:
     return _session_factory
 
 
-async def get_db() -> AsyncSession:
-    """Dépendance FastAPI — retourne une session async."""
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """Dépendance FastAPI — générateur async de session."""
     factory = get_session_factory()
     async with factory() as session:
         yield session
@@ -96,7 +98,7 @@ async def delete_override(session: AsyncSession, key: str) -> bool:
         text("DELETE FROM config_overrides WHERE key = :key"), {"key": key}
     )
     await session.commit()
-    return result.rowcount > 0
+    return result.rowcount > 0  # type: ignore[attr-defined]
 
 
 async def get_recent_posts(session: AsyncSession, limit: int = 20, status: str | None = None) -> list[dict]:

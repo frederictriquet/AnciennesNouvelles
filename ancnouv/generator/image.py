@@ -16,7 +16,7 @@ from ancnouv.utils.date_helpers import time_ago_from_ymd
 
 if TYPE_CHECKING:
     from ancnouv.config import Config
-    from ancnouv.db.models import Event, RssArticle
+    from ancnouv.db.models import Event, GallicaArticle, RssArticle
 
 logger = logging.getLogger(__name__)
 
@@ -126,7 +126,7 @@ _FR_MONTHS = [
 # Utilitaires de chargement de polices
 # ---------------------------------------------------------------------------
 
-def load_font(path: Path, size: int) -> ImageFont.FreeTypeFont:
+def load_font(path: Path, size: int) -> "ImageFont.FreeTypeFont | ImageFont.ImageFont":
     """Charge une police TTF. Fallback sur la police par défaut avec WARNING. [IMAGE_GENERATION.md]"""
     if not path.exists():
         logger.warning("Police manquante : %s — utilisation police par défaut", path.name)
@@ -298,7 +298,7 @@ def _draw_thumbnail(
     scale = min(TARGET_W / orig_w, TARGET_H / orig_h)
     new_w = int(orig_w * scale)
     new_h = int(orig_h * scale)
-    resized = thumbnail.resize((new_w, new_h), Image.LANCZOS)
+    resized = thumbnail.resize((new_w, new_h), Image.LANCZOS)  # type: ignore[attr-defined]
     x_offset = PADDING + (TARGET_W - new_w) // 2
     y_offset = y + (TARGET_H - new_h) // 2
     img.paste(resized, (x_offset, y_offset))
@@ -413,7 +413,7 @@ async def fetch_thumbnail(image_url: str | None) -> Image.Image | None:
 
 
 def _generate_image_inner(
-    source: "Event | RssArticle",
+    source: "Event | RssArticle | GallicaArticle",
     config: "Config",
     output_path: Path,
     thumbnail: Image.Image | None = None,
@@ -512,7 +512,7 @@ STORY_SAFE_BOT = 400   # ~400px spec
 
 
 def _generate_story_inner(
-    source: "Event | RssArticle",
+    source: "Event | RssArticle | GallicaArticle",
     config: "Config",
     output_path: Path,
     thumbnail: Image.Image | None = None,
@@ -601,11 +601,11 @@ def _generate_story_inner(
     y_hero = safe_top + 110
     for line in hero_lines:
         bbox = draw.textbbox((0, 0), line, font=hero_font)
-        lw = bbox[2] - bbox[0]
-        lh = bbox[3] - bbox[1]
+        lw = int(bbox[2] - bbox[0])
+        lh = int(bbox[3] - bbox[1])
         draw.text(((W - lw) // 2, y_hero), line, fill=colors["accent"], font=hero_font)
         y_hero += lh + 12
-    y_after_hero = y_hero + 20
+    y_after_hero = int(y_hero) + 20
 
     # Date centrée
     date_font = fonts["date_small"]
@@ -616,7 +616,7 @@ def _generate_story_inner(
         fill=colors["text_secondary"],
         font=date_font,
     )
-    y_after_date = y_after_hero + (date_bbox[3] - date_bbox[1]) + 30
+    y_after_date = y_after_hero + int(date_bbox[3] - date_bbox[1]) + 30
 
     # Filet séparateur
     _draw_divider(draw, W, y_after_date, colors)
@@ -654,7 +654,7 @@ def _generate_story_inner(
 
 
 def generate_story_image(
-    source: "Event | RssArticle",
+    source: "Event | RssArticle | GallicaArticle",
     config: "Config",
     output_path: Path,
     thumbnail: Image.Image | None = None,
@@ -675,7 +675,7 @@ def generate_story_image(
 
 
 def generate_image(
-    source: "Event | RssArticle",
+    source: "Event | RssArticle | GallicaArticle",
     config: "Config",
     output_path: Path,
     thumbnail: Image.Image | None = None,
@@ -697,7 +697,7 @@ def generate_image(
 
 
 def generate_shell_image(
-    source: "Event | RssArticle",
+    source: "Event | RssArticle | GallicaArticle",
     config: "Config",
     output_path: Path,
     thumbnail: "Image.Image | None" = None,

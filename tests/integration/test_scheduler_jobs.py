@@ -602,7 +602,7 @@ async def test_daily_counter_exclusivity(tmp_path):
             row = await conn.execute(
                 text("SELECT value FROM scheduler_state WHERE key = 'daily_post_count'")
             )
-            count = int(row.scalar())
+            count = int(row.scalar() or 0)
         assert count == 2
     finally:
         await engine.dispose()

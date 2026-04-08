@@ -210,7 +210,7 @@ async def recover_pending_posts(
 
             async with _get_session() as pub_session:
                 pub_post = await pub_session.get(_Post, post.id)
-                if pub_post is None:
+                if pub_post is None or post.image_public_url is None:
                     continue
                 await publish_to_all_platforms(
                     post=pub_post,
@@ -601,7 +601,7 @@ async def _job_publish_queued_inner() -> None:
                 ),
                 {"id": post_id},
             )
-            if upd.rowcount == 0:
+            if upd.rowcount == 0:  # type: ignore[attr-defined]
                 continue
 
             post = await session.get(Post, post_id)

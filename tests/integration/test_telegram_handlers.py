@@ -506,6 +506,7 @@ async def test_handle_approve_optimistic_lock(tmp_path, mock_config):
     async with factory() as session:
         result = await session.get(Post, post_id)
         # Le statut doit être "approved" — le verrou optimiste empêche la double approbation
+        assert result is not None
         assert result.status == "approved"
 
 

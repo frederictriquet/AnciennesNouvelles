@@ -238,7 +238,8 @@ async def main_async(config: Config) -> None:
         logger.info("Démarrage du bot Telegram (polling)...")
 
         await bot_app.start()
-        await bot_app.updater.start_polling(drop_pending_updates=True)
+        if bot_app.updater is not None:
+            await bot_app.updater.start_polling(drop_pending_updates=True)
         await stop_event.wait()  # bloque jusqu'à CancelledError (KeyboardInterrupt/SIGTERM)
     except asyncio.CancelledError:
         pass
@@ -259,7 +260,8 @@ async def main_async(config: Config) -> None:
         # 11. Arrêt propre
         logger.info("Arrêt en cours...")
         try:
-            await bot_app.updater.stop()
+            if bot_app.updater is not None:
+                await bot_app.updater.stop()
         except Exception as exc:
             logger.warning("Erreur arrêt updater : %s", exc)
         try:
